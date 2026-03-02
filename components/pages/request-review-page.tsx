@@ -9,6 +9,7 @@ import {
   Check,
   ChevronsUpDown,
   Paperclip,
+  Save,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,8 +39,8 @@ import {
 } from "@/components/ui/command"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useApp } from "@/lib/app-context"
-import { mockCases, mockUnits } from "@/lib/mock-data"
-import type { DraftJob, Trade, Priority } from "@/lib/types"
+import { mockUnits, mockProjects } from "@/lib/mock-data"
+import type { DraftItem, Trade, Priority, Item } from "@/lib/types"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -54,18 +55,17 @@ const TRADES: Trade[] = [
 ]
 const PRIORITIES: Priority[] = ["Low", "Normal", "Urgent"]
 
-export function CaseReviewPage() {
-  const { currentProject, currentPage, navigateTo } = useApp()
+export function RequestReviewPage() {
+  const { currentPage, requests, navigateTo, processRequest } = useApp()
 
-  const caseId =
-    currentPage.type === "case-review" ? currentPage.caseId : null
-  const caseData = caseId
-    ? mockCases.find((c) => c.id === caseId) ?? null
-    : null
+  const requestId = currentPage.type === "request-review" ? currentPage.requestId : null
+  const requestData = requestId ? requests.find((r) => r.id === requestId) ?? null : null
 
-  const [selectedUnitId, setSelectedUnitId] = useState<string>("")
+  const [selectedUnitId, setSelectedUnitId] = useState<string>(
+    requestData?.detectedUnitId ?? ""
+  )
   const [unitOpen, setUnitOpen] = useState(false)
-  const [draftJobs, setDraftJobs] = useState<DraftJob[]>([
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([
     {
       id: "draft_1",
       title: "",
@@ -76,18 +76,20 @@ export function CaseReviewPage() {
   ])
   const [showUnitError, setShowUnitError] = useState(false)
 
-  const units = useMemo(
-    () =>
-      currentProject
-        ? mockUnits.filter((u) => u.projectId === currentProject.id)
-        : [],
-    [currentProject]
-  )
+  const allUnits = mockUnits
 
-  const selectedUnit = units.find((u) => u.id === selectedUnitId)
+  const selectedUnit = allUnits.find((u) => u.id === selectedUnitId)
+  const selectedProject = selectedUnit
+    ? mockProjects.find((p) => p.id === selectedUnit.projectId)
+    : null
 
-  function addDraftJob() {
-    setDraftJobs((prev) => [
+  const canConfirm = useMemo(() => {
+    if (!selectedUnitId) return false
+    return draftItems.some((d) => d.title.trim() && d.trade && d.priority)
+  }, [selectedUnitId, draftItems])
+
+  function addDraftItem() {
+    setDraftItems((prev) => [
       ...prev,
       {
         id: `draft_${Date.now()}`,
@@ -99,13 +101,13 @@ export function CaseReviewPage() {
     ])
   }
 
-  function removeDraftJob(id: string) {
-    setDraftJobs((prev) => prev.filter((j) => j.id !== id))
+  function removeDraftItem(id: string) {
+    setDraftItems((prev) => prev.filter((d) => d.id !== id))
   }
 
-  function updateDraftJob(id: string, field: keyof DraftJob, value: string) {
-    setDraftJobs((prev) =>
-      prev.map((j) => (j.id === id ? { ...j, [field]: value } : j))
+  function updateDraftItem(id: string, field: keyof DraftItem, value: string) {
+    setDraftItems((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
     )
   }
 
@@ -114,11 +116,29 @@ export function CaseReviewPage() {
       setShowUnitError(true)
       return
     }
-    // Placeholder — would POST to API
-    navigateTo({ type: "project-detail", tab: "inbox" })
+    if (!requestData || !selectedUnit) return
+
+    const validDrafts = draftItems.filter((d) => d.title.trim() && d.trade && d.priority)
+    const now = new Date().toISOString()
+    const newItems: Item[] = validDrafts.map((d, idx) => ({
+      id: `item_new_${Date.now()}_${idx}`,
+      projectId: selectedUnit.projectId,
+      requestId: requestData.id,
+      unitId: selectedUnitId,
+      title: d.title,
+      description: d.description,
+      trade: d.trade,
+      priority: d.priority,
+      status: "New" as const,
+      createdAt: now,
+      updatedAt: now,
+    }))
+
+    processRequest(requestData.id, newItems)
+    navigateTo({ type: "items", filterUnitId: selectedUnitId })
   }
 
-  if (!caseData || !currentProject) return null
+  if (!requestData) return null
 
   return (
     <div className="flex flex-1 flex-col">
@@ -127,91 +147,68 @@ export function CaseReviewPage() {
           variant="ghost"
           size="icon"
           className="size-8"
-          onClick={() => navigateTo({ type: "project-detail", tab: "inbox" })}
+          onClick={() => navigateTo({ type: "requests" })}
         >
           <ArrowLeft className="size-4" />
-          <span className="sr-only">Back to inbox</span>
+          <span className="sr-only">Back to requests</span>
         </Button>
         <div>
-          <h1 className="text-base font-semibold text-foreground">
-            Case Review
-          </h1>
+          <h1 className="text-base font-semibold text-foreground">Request Review</h1>
           <p className="text-xs text-muted-foreground">
-            Review case and create maintenance jobs
+            Review request and create maintenance items
           </p>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6 lg:flex-row">
-          {/* LEFT COLUMN: Case Details */}
+          {/* LEFT: Request details */}
           <div className="flex flex-col gap-4 lg:w-1/2">
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-sm font-semibold">
-                    Case Details
-                  </CardTitle>
+                  <CardTitle className="text-sm font-semibold">Request Details</CardTitle>
                   <Badge
                     variant="outline"
                     className={
-                      caseData.status === "needs_review"
+                      requestData.status === "needs_review"
                         ? "border-warning/30 bg-warning/10 text-warning-foreground"
                         : "border-success/30 bg-success/10 text-success"
                     }
                   >
-                    {caseData.status === "needs_review"
-                      ? "Needs Review"
-                      : "Processed"}
+                    {requestData.status === "needs_review" ? "Needs Review" : "Processed"}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      From
-                    </p>
-                    <p className="text-sm font-medium text-foreground">
-                      {caseData.fromName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {caseData.fromEmail}
-                    </p>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">From</p>
+                    <p className="text-sm font-medium text-foreground">{requestData.fromName}</p>
+                    <p className="text-xs text-muted-foreground">{requestData.fromEmail}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Received
-                    </p>
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Received</p>
                     <p className="text-sm text-foreground">
-                      {format(
-                        new Date(caseData.receivedAt),
-                        "MMM d, yyyy h:mm a"
-                      )}
+                      {format(new Date(requestData.receivedAt), "MMM d, yyyy h:mm a")}
                     </p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    Subject
-                  </p>
-                  <p className="text-sm font-medium text-foreground">
-                    {caseData.subject}
-                  </p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Subject</p>
+                  <p className="text-sm font-medium text-foreground">{requestData.subject}</p>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="flex-1">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">
-                  Email Body
-                </CardTitle>
+                <CardTitle className="text-sm font-semibold">Email Body</CardTitle>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[300px]">
                   <div className="whitespace-pre-wrap rounded-lg bg-muted p-4 text-sm leading-relaxed text-foreground">
-                    {caseData.bodyRaw}
+                    {requestData.bodyRaw}
                   </div>
                 </ScrollArea>
               </CardContent>
@@ -219,9 +216,7 @@ export function CaseReviewPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">
-                  Attachments
-                </CardTitle>
+                <CardTitle className="text-sm font-semibold">Attachments</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-4 text-muted-foreground">
@@ -232,20 +227,22 @@ export function CaseReviewPage() {
             </Card>
           </div>
 
-          {/* RIGHT COLUMN: Review & Create Jobs */}
+          {/* RIGHT: Review & Create Items */}
           <div className="flex flex-col gap-4 lg:w-1/2">
-            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
-              <p className="text-sm text-warning-foreground">
-                Please confirm the correct unit before creating jobs.
-              </p>
-            </div>
+            {requestData.status === "needs_review" && (
+              <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+                <p className="text-sm text-warning-foreground">
+                  Please confirm the correct unit before creating items.
+                </p>
+              </div>
+            )}
 
             {/* Unit Selection */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">
-                  Unit Selection
+                  Confirm Unit
                   <span className="ml-1 text-destructive">*</span>
                 </CardTitle>
               </CardHeader>
@@ -259,44 +256,48 @@ export function CaseReviewPage() {
                       className={cn(
                         "w-full justify-between font-normal",
                         !selectedUnitId && "text-muted-foreground",
-                        showUnitError &&
-                          !selectedUnitId &&
-                          "border-destructive"
+                        showUnitError && !selectedUnitId && "border-destructive"
                       )}
                     >
                       {selectedUnit
-                        ? `Unit ${selectedUnit.unitNumber} — ${selectedUnit.address}`
+                        ? `Unit ${selectedUnit.unitNumber} - ${selectedUnit.address}${selectedProject ? ` (${selectedProject.name})` : ""}`
                         : "Select a unit..."}
                       <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0" align="start">
+                  <PopoverContent className="w-[440px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search by unit number or address..." />
                       <CommandList>
                         <CommandEmpty>No units found.</CommandEmpty>
                         <CommandGroup>
-                          {units.map((unit) => (
-                            <CommandItem
-                              key={unit.id}
-                              value={`${unit.unitNumber} ${unit.address}`}
-                              onSelect={() => {
-                                setSelectedUnitId(unit.id)
-                                setUnitOpen(false)
-                                setShowUnitError(false)
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 size-4",
-                                  selectedUnitId === unit.id
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                              Unit {unit.unitNumber} — {unit.address}
-                            </CommandItem>
-                          ))}
+                          {allUnits.map((unit) => {
+                            const proj = mockProjects.find((p) => p.id === unit.projectId)
+                            return (
+                              <CommandItem
+                                key={unit.id}
+                                value={`${unit.unitNumber} ${unit.address} ${proj?.name ?? ""}`}
+                                onSelect={() => {
+                                  setSelectedUnitId(unit.id)
+                                  setUnitOpen(false)
+                                  setShowUnitError(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 size-4",
+                                    selectedUnitId === unit.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span>
+                                  Unit {unit.unitNumber} - {unit.address}
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    ({proj?.name})
+                                  </span>
+                                </span>
+                              </CommandItem>
+                            )
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>
@@ -304,44 +305,41 @@ export function CaseReviewPage() {
                 </Popover>
                 {showUnitError && !selectedUnitId && (
                   <p className="mt-2 text-xs text-destructive">
-                    A unit must be selected before creating jobs.
+                    A unit must be selected before creating items.
                   </p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Draft Jobs */}
+            {/* Draft Items */}
             <Card className="flex-1">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold">
-                    Draft Jobs ({draftJobs.length})
+                    Draft Items ({draftItems.length})
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={addDraftJob}>
+                  <Button variant="outline" size="sm" onClick={addDraftItem}>
                     <Plus className="mr-1 size-3.5" />
-                    Add Job
+                    Add Item
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                {draftJobs.map((draft, index) => (
-                  <div
-                    key={draft.id}
-                    className="rounded-lg border border-border p-4"
-                  >
+                {draftItems.map((draft, index) => (
+                  <div key={draft.id} className="rounded-lg border border-border p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">
-                        Job {index + 1}
+                        Item {index + 1}
                       </span>
-                      {draftJobs.length > 1 && (
+                      {draftItems.length > 1 && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="size-6 text-destructive"
-                          onClick={() => removeDraftJob(draft.id)}
+                          onClick={() => removeDraftItem(draft.id)}
                         >
                           <Trash2 className="size-3.5" />
-                          <span className="sr-only">Remove job</span>
+                          <span className="sr-only">Remove item</span>
                         </Button>
                       )}
                     </div>
@@ -350,24 +348,16 @@ export function CaseReviewPage() {
                         <Label className="text-xs">Title</Label>
                         <Input
                           value={draft.title}
-                          onChange={(e) =>
-                            updateDraftJob(draft.id, "title", e.target.value)
-                          }
-                          placeholder="Job title..."
+                          onChange={(e) => updateDraftItem(draft.id, "title", e.target.value)}
+                          placeholder="Item title..."
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <Label className="text-xs">Description</Label>
                         <Textarea
                           value={draft.description}
-                          onChange={(e) =>
-                            updateDraftJob(
-                              draft.id,
-                              "description",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Job description..."
+                          onChange={(e) => updateDraftItem(draft.id, "description", e.target.value)}
+                          placeholder="Item description..."
                           rows={2}
                         />
                       </div>
@@ -376,18 +366,14 @@ export function CaseReviewPage() {
                           <Label className="text-xs">Trade</Label>
                           <Select
                             value={draft.trade}
-                            onValueChange={(v) =>
-                              updateDraftJob(draft.id, "trade", v)
-                            }
+                            onValueChange={(v) => updateDraftItem(draft.id, "trade", v)}
                           >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               {TRADES.map((t) => (
-                                <SelectItem key={t} value={t}>
-                                  {t}
-                                </SelectItem>
+                                <SelectItem key={t} value={t}>{t}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -396,18 +382,14 @@ export function CaseReviewPage() {
                           <Label className="text-xs">Priority</Label>
                           <Select
                             value={draft.priority}
-                            onValueChange={(v) =>
-                              updateDraftJob(draft.id, "priority", v)
-                            }
+                            onValueChange={(v) => updateDraftItem(draft.id, "priority", v)}
                           >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               {PRIORITIES.map((p) => (
-                                <SelectItem key={p} value={p}>
-                                  {p}
-                                </SelectItem>
+                                <SelectItem key={p} value={p}>{p}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -419,10 +401,16 @@ export function CaseReviewPage() {
               </CardContent>
             </Card>
 
-            <Button onClick={handleConfirm} className="w-full">
-              <Check className="mr-1.5 size-4" />
-              Confirm & Create Jobs
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => navigateTo({ type: "requests" })}>
+                <Save className="mr-1.5 size-4" />
+                Save Draft
+              </Button>
+              <Button className="flex-1" onClick={handleConfirm} disabled={!canConfirm}>
+                <Check className="mr-1.5 size-4" />
+                Confirm & Create Items
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -12,9 +12,9 @@ export interface Unit {
   address: string
 }
 
-export type CaseStatus = "needs_review" | "processed"
+export type RequestStatus = "needs_review" | "processed"
 
-export interface Case {
+export interface MaintenanceRequest {
   id: string
   projectId: string
   fromName: string
@@ -22,7 +22,8 @@ export interface Case {
   subject: string
   bodyRaw: string
   receivedAt: string
-  status: CaseStatus
+  status: RequestStatus
+  detectedUnitId?: string
 }
 
 export type Trade =
@@ -36,36 +37,28 @@ export type Trade =
 
 export type Priority = "Low" | "Normal" | "Urgent"
 
-export type JobStatus =
+export type ItemStatus =
   | "New"
   | "Assigned"
   | "In Progress"
   | "Completed"
   | "Closed"
 
-export interface Job {
+export interface Item {
   id: string
   projectId: string
-  caseId: string
+  requestId: string
   unitId: string
   title: string
   description: string
   trade: Trade
   priority: Priority
-  status: JobStatus
-  assignedContractorId?: string
+  status: ItemStatus
+  createdAt: string
   updatedAt: string
 }
 
-export interface Contractor {
-  id: string
-  projectId: string
-  name: string
-  email: string
-  trades: Trade[]
-}
-
-export interface DraftJob {
+export interface DraftItem {
   id: string
   title: string
   description: string

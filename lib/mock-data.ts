@@ -1,9 +1,8 @@
 import type {
   Project,
   Unit,
-  Case,
-  Job,
-  Contractor,
+  MaintenanceRequest,
+  Item,
 } from "./types"
 
 export const mockProjects: Project[] = [
@@ -36,11 +35,17 @@ export const mockUnits: Unit[] = [
   { id: "unit_06", projectId: "proj_01", unitNumber: "302", address: "100 River Road, Apt 302" },
   { id: "unit_07", projectId: "proj_01", unitNumber: "401", address: "100 River Road, Apt 401" },
   { id: "unit_08", projectId: "proj_01", unitNumber: "402", address: "100 River Road, Apt 402" },
+  { id: "unit_09", projectId: "proj_02", unitNumber: "A1", address: "50 Oak Street, Suite A1" },
+  { id: "unit_10", projectId: "proj_02", unitNumber: "A2", address: "50 Oak Street, Suite A2" },
+  { id: "unit_11", projectId: "proj_02", unitNumber: "B1", address: "50 Oak Street, Suite B1" },
+  { id: "unit_12", projectId: "proj_03", unitNumber: "1A", address: "10 Cedar Lane, Unit 1A" },
+  { id: "unit_13", projectId: "proj_03", unitNumber: "1B", address: "10 Cedar Lane, Unit 1B" },
+  { id: "unit_14", projectId: "proj_03", unitNumber: "2A", address: "10 Cedar Lane, Unit 2A" },
 ]
 
-export const mockCases: Case[] = [
+export const mockRequests: MaintenanceRequest[] = [
   {
-    id: "case_01",
+    id: "req_01",
     projectId: "proj_01",
     fromName: "Sarah Mitchell",
     fromEmail: "sarah.m@email.com",
@@ -49,9 +54,10 @@ export const mockCases: Case[] = [
       "Hi,\n\nI've been dealing with a persistent leak under my kitchen sink for the past two days. The leak seems to be coming from the pipe joint under the basin. I've placed a bucket underneath but it fills up within a few hours. The water appears to be clean (not sewage) but it's getting worse.\n\nI've attached a photo of the leak. Could someone please come take a look as soon as possible? I'm worried about water damage to the cabinet.\n\nThank you,\nSarah Mitchell\nUnit 101",
     receivedAt: "2026-02-28T09:15:00Z",
     status: "needs_review",
+    detectedUnitId: "unit_01",
   },
   {
-    id: "case_02",
+    id: "req_02",
     projectId: "proj_01",
     fromName: "James Rodriguez",
     fromEmail: "j.rodriguez@email.com",
@@ -62,7 +68,7 @@ export const mockCases: Case[] = [
     status: "needs_review",
   },
   {
-    id: "case_03",
+    id: "req_03",
     projectId: "proj_01",
     fromName: "Emily Chen",
     fromEmail: "e.chen@email.com",
@@ -71,9 +77,10 @@ export const mockCases: Case[] = [
       "Hello maintenance team,\n\nMy bathroom door has been sticking and won't close properly. It seems like the frame has shifted or the hinges are loose. It's been getting progressively worse over the past week.\n\nCould you send someone to fix it when you get a chance?\n\nThanks,\nEmily Chen\nUnit 301",
     receivedAt: "2026-02-26T11:00:00Z",
     status: "processed",
+    detectedUnitId: "unit_05",
   },
   {
-    id: "case_04",
+    id: "req_04",
     projectId: "proj_01",
     fromName: "Michael Park",
     fromEmail: "m.park@email.com",
@@ -82,116 +89,112 @@ export const mockCases: Case[] = [
       "Hi there,\n\nOur dishwasher stopped draining at the end of its cycle. There's standing water at the bottom after every wash. We've tried running it a couple more times but the problem persists.\n\nThe dishwasher is a Bosch model that came with the unit. It was working fine until about three days ago.\n\nPlease advise or send someone to look at it.\n\nThanks,\nMichael Park\nUnit 402",
     receivedAt: "2026-02-25T16:45:00Z",
     status: "needs_review",
+    detectedUnitId: "unit_08",
+  },
+  {
+    id: "req_05",
+    projectId: "proj_02",
+    fromName: "Lisa Wang",
+    fromEmail: "l.wang@email.com",
+    subject: "HVAC not heating properly",
+    bodyRaw:
+      "Hi,\n\nThe heating in Suite A1 hasn't been working properly for the last few days. The thermostat shows the system is running but the air coming from the vents is lukewarm at best.\n\nPlease have someone take a look.\n\nThanks,\nLisa Wang",
+    receivedAt: "2026-02-27T10:00:00Z",
+    status: "needs_review",
+    detectedUnitId: "unit_09",
   },
 ]
 
-export const mockJobs: Job[] = [
+export const mockItems: Item[] = [
   {
-    id: "job_01",
+    id: "item_01",
     projectId: "proj_01",
-    caseId: "case_03",
+    requestId: "req_03",
     unitId: "unit_05",
     title: "Fix bathroom door alignment",
     description: "Bathroom door sticking and won't close. Likely hinge or frame issue.",
     trade: "Carpentry",
     priority: "Normal",
     status: "Assigned",
-    assignedContractorId: "cont_02",
+    createdAt: "2026-02-26T12:00:00Z",
     updatedAt: "2026-02-27T10:00:00Z",
   },
   {
-    id: "job_02",
+    id: "item_02",
     projectId: "proj_01",
-    caseId: "case_01",
+    requestId: "req_01",
     unitId: "unit_01",
     title: "Repair kitchen sink pipe leak",
     description: "Persistent leak under kitchen sink at pipe joint. Clean water leak.",
     trade: "Plumbing",
     priority: "Urgent",
     status: "New",
+    createdAt: "2026-02-28T09:30:00Z",
     updatedAt: "2026-02-28T09:30:00Z",
   },
   {
-    id: "job_03",
+    id: "item_03",
     projectId: "proj_01",
-    caseId: "case_02",
+    requestId: "req_02",
     unitId: "unit_04",
     title: "Inspect sparking outlet",
     description: "Bedroom outlet sparking when plugging in devices. Potential fire hazard.",
     trade: "Electrical",
     priority: "Urgent",
     status: "New",
+    createdAt: "2026-02-27T15:00:00Z",
     updatedAt: "2026-02-28T08:00:00Z",
   },
   {
-    id: "job_04",
+    id: "item_04",
     projectId: "proj_01",
-    caseId: "case_03",
+    requestId: "req_03",
     unitId: "unit_05",
     title: "Repaint bathroom door frame",
     description: "Touch up paint on bathroom door frame after realignment repair.",
     trade: "Painting",
     priority: "Low",
     status: "New",
+    createdAt: "2026-02-26T12:15:00Z",
     updatedAt: "2026-02-27T10:15:00Z",
   },
   {
-    id: "job_05",
+    id: "item_05",
     projectId: "proj_01",
-    caseId: "case_04",
+    requestId: "req_04",
     unitId: "unit_08",
     title: "Diagnose dishwasher drainage issue",
     description: "Bosch dishwasher not draining. Standing water after cycle.",
     trade: "Appliance",
     priority: "Normal",
     status: "In Progress",
-    assignedContractorId: "cont_03",
+    createdAt: "2026-02-25T17:00:00Z",
     updatedAt: "2026-02-26T14:00:00Z",
   },
-]
-
-export const mockContractors: Contractor[] = [
   {
-    id: "cont_01",
-    projectId: "proj_01",
-    name: "FastFix Plumbing",
-    email: "dispatch@fastfix.com",
-    trades: ["Plumbing"],
+    id: "item_06",
+    projectId: "proj_02",
+    requestId: "req_05",
+    unitId: "unit_09",
+    title: "HVAC heating inspection",
+    description: "Heating not reaching temperature in Suite A1. Thermostat shows system running.",
+    trade: "General",
+    priority: "Urgent",
+    status: "New",
+    createdAt: "2026-02-27T11:00:00Z",
+    updatedAt: "2026-02-27T11:00:00Z",
   },
   {
-    id: "cont_02",
+    id: "item_07",
     projectId: "proj_01",
-    name: "WoodWorks Pro",
-    email: "jobs@woodworkspro.com",
-    trades: ["Carpentry", "Painting"],
-  },
-  {
-    id: "cont_03",
-    projectId: "proj_01",
-    name: "AllStar Appliances",
-    email: "service@allstarappliances.com",
-    trades: ["Appliance", "General"],
-  },
-  {
-    id: "cont_04",
-    projectId: "proj_01",
-    name: "BrightSpark Electric",
-    email: "support@brightspark.com",
-    trades: ["Electrical"],
+    requestId: "req_01",
+    unitId: "unit_01",
+    title: "Check cabinet for water damage",
+    description: "Assess and repair potential water damage to kitchen cabinet from sink leak.",
+    trade: "Carpentry",
+    priority: "Normal",
+    status: "New",
+    createdAt: "2026-02-28T09:45:00Z",
+    updatedAt: "2026-02-28T09:45:00Z",
   },
 ]
-
-export function getProjectStats(projectId: string) {
-  const units = mockUnits.filter((u) => u.projectId === projectId)
-  const jobs = mockJobs.filter(
-    (j) => j.projectId === projectId && !["Completed", "Closed"].includes(j.status)
-  )
-  const casesNeedingReview = mockCases.filter(
-    (c) => c.projectId === projectId && c.status === "needs_review"
-  )
-  return {
-    unitsCount: units.length,
-    openJobsCount: jobs.length,
-    casesNeedingReview: casesNeedingReview.length,
-  }
-}

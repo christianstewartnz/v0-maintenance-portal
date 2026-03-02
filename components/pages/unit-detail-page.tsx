@@ -1,0 +1,230 @@
+"use client"
+
+import { ClipboardList, AlertTriangle, Eye } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { useApp } from "@/lib/app-context"
+import { mockUnits, mockProjects } from "@/lib/mock-data"
+import { format } from "date-fns"
+
+function getPriorityStyle(priority: string) {
+  switch (priority) {
+    case "Urgent":
+      return "bg-destructive/10 text-destructive border-destructive/20"
+    case "Normal":
+      return "bg-primary/10 text-primary border-primary/20"
+    case "Low":
+      return "bg-muted text-muted-foreground border-border"
+    default:
+      return ""
+  }
+}
+
+function getStatusStyle(status: string) {
+  switch (status) {
+    case "New":
+      return "bg-primary/10 text-primary border-primary/20"
+    case "Assigned":
+      return "bg-chart-2/10 text-chart-2 border-chart-2/20"
+    case "In Progress":
+      return "bg-warning/10 text-warning-foreground border-warning/20"
+    case "Completed":
+      return "bg-success/10 text-success border-success/20"
+    case "Closed":
+      return "bg-muted text-muted-foreground border-border"
+    default:
+      return ""
+  }
+}
+
+export function UnitDetailPage() {
+  const { currentPage, items, requests, navigateTo } = useApp()
+
+  const unitId = currentPage.type === "unit-detail" ? currentPage.unitId : null
+  const unit = unitId ? mockUnits.find((u) => u.id === unitId) : null
+  const project = unit ? mockProjects.find((p) => p.id === unit.projectId) : null
+
+  if (!unit || !project) return null
+
+  const unitItems = items.filter((i) => i.unitId === unit.id)
+  const openItems = unitItems.filter((i) => !["Completed", "Closed"].includes(i.status))
+  const highPriority = openItems.filter((i) => i.priority === "Urgent")
+  const relatedRequests = requests.filter((r) =>
+    r.detectedUnitId === unit.id ||
+    items.some((i) => i.unitId === unit.id && i.requestId === r.id)
+  )
+
+  function renderItemTable(itemList: typeof unitItems) {
+    if (itemList.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <ClipboardList className="mb-3 size-10 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-muted-foreground">No items</p>
+        </div>
+      )
+    }
+    return (
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="text-xs font-medium">Title</TableHead>
+              <TableHead className="text-xs font-medium">Trade</TableHead>
+              <TableHead className="text-xs font-medium">Priority</TableHead>
+              <TableHead className="text-xs font-medium">Status</TableHead>
+              <TableHead className="text-xs font-medium">Created</TableHead>
+              <TableHead className="text-xs font-medium">Updated</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {itemList.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="text-sm font-medium text-foreground">{item.title}</TableCell>
+                <TableCell className="text-sm text-foreground">{item.trade}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={getPriorityStyle(item.priority)}>{item.priority}</Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={getStatusStyle(item.status)}>{item.status}</Badge>
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                  {format(new Date(item.createdAt), "MMM d")}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                  {format(new Date(item.updatedAt), "MMM d")}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="border-b border-border px-6 py-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                className="cursor-pointer text-muted-foreground hover:text-foreground"
+                onClick={() => navigateTo({ type: "units" })}
+              >
+                Units
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Unit {unit.unitNumber}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
+      <div className="flex-1 overflow-auto p-6">
+        <div className="mb-6 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-foreground">Unit {unit.unitNumber}</h2>
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="text-xs">{openItems.length} Open</Badge>
+              {highPriority.length > 0 && (
+                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
+                  <AlertTriangle className="mr-1 size-3" />
+                  {highPriority.length} High Priority
+                </Badge>
+              )}
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">{unit.address}</p>
+          <p className="text-xs text-muted-foreground">{project.name}</p>
+        </div>
+
+        <Tabs defaultValue="open" className="flex flex-col gap-4">
+          <TabsList className="w-fit">
+            <TabsTrigger value="open">Open Items ({openItems.length})</TabsTrigger>
+            <TabsTrigger value="all">All Items ({unitItems.length})</TabsTrigger>
+            <TabsTrigger value="requests">Requests ({relatedRequests.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="open" className="mt-0">
+            <Card>
+              <CardContent className="pt-6">{renderItemTable(openItems)}</CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="all" className="mt-0">
+            <Card>
+              <CardContent className="pt-6">{renderItemTable(unitItems)}</CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="requests" className="mt-0">
+            <Card>
+              <CardContent className="pt-6">
+                {relatedRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <ClipboardList className="mb-3 size-10 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-muted-foreground">No related requests</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {relatedRequests.map((req) => (
+                      <div key={req.id} className="flex items-start justify-between rounded-lg border border-border p-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground">{req.subject}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {req.fromName} &middot; {format(new Date(req.receivedAt), "MMM d, h:mm a")}
+                          </p>
+                        </div>
+                        <div className="ml-4 flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              req.status === "needs_review"
+                                ? "border-warning/30 bg-warning/10 text-warning-foreground"
+                                : ""
+                            }
+                          >
+                            {req.status === "needs_review" ? "Needs Review" : "Processed"}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => navigateTo({ type: "request-review", requestId: req.id })}
+                          >
+                            <Eye className="mr-1 size-3.5" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}

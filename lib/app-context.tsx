@@ -1,40 +1,58 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback } from "react"
-import type { Project } from "./types"
-import { mockProjects } from "./mock-data"
+import type { MaintenanceRequest, Item } from "./types"
+import { mockRequests as initialRequests, mockItems as initialItems } from "./mock-data"
 
-type Page =
+export type Page =
+  | { type: "dashboard" }
   | { type: "projects" }
-  | { type: "project-detail"; tab?: string }
-  | { type: "case-review"; caseId: string }
+  | { type: "project-detail"; projectId: string }
+  | { type: "units" }
+  | { type: "unit-detail"; unitId: string }
+  | { type: "requests" }
+  | { type: "request-review"; requestId: string }
+  | { type: "items"; filterUnitId?: string }
 
 interface AppContextValue {
-  currentProject: Project | null
-  setCurrentProject: (project: Project | null) => void
   currentPage: Page
   navigateTo: (page: Page) => void
+  requests: MaintenanceRequest[]
+  items: Item[]
+  processRequest: (requestId: string, newItems: Item[]) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentProject, setCurrentProject] = useState<Project | null>(
-    mockProjects[0]
-  )
-  const [currentPage, setCurrentPage] = useState<Page>({ type: "projects" })
+  const [currentPage, setCurrentPage] = useState<Page>({ type: "dashboard" })
+  const [requests, setRequests] = useState<MaintenanceRequest[]>(initialRequests)
+  const [items, setItems] = useState<Item[]>(initialItems)
 
   const navigateTo = useCallback((page: Page) => {
     setCurrentPage(page)
   }, [])
 
+  const processRequest = useCallback(
+    (requestId: string, newItems: Item[]) => {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: "processed" as const } : r
+        )
+      )
+      setItems((prev) => [...prev, ...newItems])
+    },
+    []
+  )
+
   return (
     <AppContext.Provider
       value={{
-        currentProject,
-        setCurrentProject,
         currentPage,
         navigateTo,
+        requests,
+        items,
+        processRequest,
       }}
     >
       {children}

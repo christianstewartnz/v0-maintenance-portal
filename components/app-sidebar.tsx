@@ -1,12 +1,12 @@
 "use client"
 
 import {
+  LayoutDashboard,
   Building2,
-  Inbox,
+  DoorOpen,
+  MessageSquareText,
+  ClipboardList,
   Wrench,
-  HardHat,
-  Settings,
-  ChevronDown,
 } from "lucide-react"
 import {
   Sidebar,
@@ -21,25 +21,19 @@ import {
   SidebarFooter,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { useApp } from "@/lib/app-context"
-import { mockProjects } from "@/lib/mock-data"
+import type { Page } from "@/lib/app-context"
 
-const navItems = [
-  { label: "Projects", icon: Building2, page: "projects" as const },
-  { label: "Inbox", icon: Inbox, page: "project-detail" as const, tab: "inbox" },
-  { label: "Jobs", icon: Wrench, page: "project-detail" as const, tab: "jobs" },
-  { label: "Contractors", icon: HardHat, page: "project-detail" as const, tab: "contractors" },
-  { label: "Settings", icon: Settings, page: "project-detail" as const, tab: "settings" },
+const navItems: { label: string; icon: typeof LayoutDashboard; pageType: Page["type"] }[] = [
+  { label: "Dashboard", icon: LayoutDashboard, pageType: "dashboard" },
+  { label: "Projects", icon: Building2, pageType: "projects" },
+  { label: "Units", icon: DoorOpen, pageType: "units" },
+  { label: "Requests", icon: MessageSquareText, pageType: "requests" },
+  { label: "Items", icon: ClipboardList, pageType: "items" },
 ]
 
 export function AppSidebar() {
-  const { currentProject, setCurrentProject, currentPage, navigateTo } = useApp()
+  const { currentPage, navigateTo } = useApp()
 
   return (
     <Sidebar>
@@ -54,32 +48,6 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarSeparator />
-      {currentProject && (
-        <SidebarGroup className="px-3 pt-3 pb-0">
-          <SidebarGroupLabel className="mb-1 px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            Project
-          </SidebarGroupLabel>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left text-sm font-medium text-card-foreground transition-colors hover:bg-accent">
-                <span className="truncate">{currentProject.name}</span>
-                <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              {mockProjects.map((project) => (
-                <DropdownMenuItem
-                  key={project.id}
-                  onClick={() => setCurrentProject(project)}
-                  className={project.id === currentProject.id ? "bg-accent" : ""}
-                >
-                  {project.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </SidebarGroup>
-      )}
       <SidebarContent className="pt-2">
         <SidebarGroup>
           <SidebarGroupLabel className="px-1 text-[11px] uppercase tracking-wider">
@@ -88,26 +56,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive =
-                  item.page === "projects"
-                    ? currentPage.type === "projects"
-                    : currentPage.type === "project-detail" &&
-                      "tab" in currentPage &&
-                      currentPage.tab === item.tab
+                const isActive = currentPage.type === item.pageType
 
                 return (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                       isActive={isActive}
                       onClick={() => {
-                        if (item.page === "projects") {
-                          navigateTo({ type: "projects" })
-                        } else {
-                          navigateTo({
-                            type: "project-detail",
-                            tab: item.tab,
-                          })
-                        }
+                        navigateTo({ type: item.pageType } as Page)
                       }}
                     >
                       <item.icon className="size-4" />
@@ -121,9 +77,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="px-4 py-3">
-        <div className="text-xs text-muted-foreground">
-          v1.0.0
-        </div>
+        <div className="text-xs text-muted-foreground">v2.0.0</div>
       </SidebarFooter>
     </Sidebar>
   )
