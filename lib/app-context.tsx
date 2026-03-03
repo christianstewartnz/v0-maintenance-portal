@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
-import type { Project, Unit, MaintenanceRequest, Item } from "./types"
+import type { Project, Unit, MaintenanceRequest, Item, DraftItem, AIDraftResponse, ItemStatus } from "./types"
 
 export type Page =
   | { type: "dashboard" }
@@ -13,6 +13,32 @@ export type Page =
   | { type: "request-review"; requestId: string }
   | { type: "items"; filterUnitId?: string }
 
+export interface CreateRequestPayload {
+  projectId: string
+  subject: string
+  bodyRaw: string
+  fromName?: string
+  fromEmail?: string
+}
+
+export interface CreateProjectPayload {
+  name: string
+  description?: string
+}
+
+export interface CreateUnitPayload {
+  projectId: string
+  unitNumber: string
+  address: string
+}
+
+export interface ItemFilters {
+  status?: string
+  trade?: string
+  unitId?: string
+  requestId?: string
+}
+
 interface AppContextValue {
   loading: boolean
   currentPage: Page
@@ -21,7 +47,21 @@ interface AppContextValue {
   units: Unit[]
   requests: MaintenanceRequest[]
   items: Item[]
-  processRequest: (requestId: string, newItems: Item[]) => void
+  selectedProjectId: string | null
+  setSelectedProjectId: (id: string) => void
+  fetchProjects: (includeArchived?: boolean) => Promise<Project[]>
+  fetchUnits: (includeArchived?: boolean) => Promise<Unit[]>
+  fetchRequests: (projectId: string, status?: string) => Promise<void>
+  fetchItems: (projectId: string, filters?: ItemFilters) => Promise<void>
+  createProject: (payload: CreateProjectPayload) => Promise<void>
+  createUnit: (payload: CreateUnitPayload) => Promise<void>
+  uploadUnitsCSV: (file: File) => Promise<{ created: number; errors?: string[] }>
+  createRequest: (payload: CreateRequestPayload) => Promise<void>
+  processRequest: (requestId: string, unitId: string, drafts: DraftItem[]) => void
+  draftRequest: (requestId: string) => Promise<AIDraftResponse>
+  archiveProject: (projectId: string, archive: boolean) => Promise<void>
+  archiveUnit: (unitId: string, archive: boolean) => Promise<void>
+  updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -33,26 +73,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [units, setUnits] = useState<Unit[]>([])
   const [requests, setRequests] = useState<MaintenanceRequest[]>([])
   const [items, setItems] = useState<Item[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+
+  const fetchProjects = useCallback(async (includeArchived?: boolean): Promise<Project[]> => {
+    try {
+      const params = new URLSearchParams()
+      if (includeArchived) params.set("includeArchived", "true")
+      const res = await fetch(`/api/projects?${params}`)
+      const data: Project[] = await res.json()
+      setProjects(data)
+      return data
+    } catch (err) {
+      console.error("Failed to fetch projects:", err)
+      return []
+    }
+  }, [])
+
+  const fetchUnits = useCallback(async (includeArchived?: boolean): Promise<Unit[]> => {
+    try {
+      const params = new URLSearchParams()
+      if (includeArchived) params.set("includeArchived", "true")
+      const res = await fetch(`/api/units?${params}`)
+      const data: Unit[] = await res.json()
+      setUnits(data)
+      return data
+    } catch (err) {
+      console.error("Failed to fetch units:", err)
+      return []
+    }
+  }, [])
+
+  const fetchRequests = useCallback(async (projectId: string, status?: string) => {
+    try {
+      const params = new URLSearchParams({ projectId })
+      if (status && status !== "all") params.set("status", status)
+      const res = await fetch(`/api/requests?${params}`)
+      const data = await res.json()
+      setRequests(data)
+    } catch (err) {
+      console.error("Failed to fetch requests:", err)
+    }
+  }, [])
+
+  const fetchItems = useCallback(async (projectId: string, filters?: ItemFilters) => {
+    try {
+      const params = new URLSearchParams({ projectId })
+      if (filters?.status && filters.status !== "all") params.set("status", filters.status)
+      if (filters?.trade && filters.trade !== "all") params.set("trade", filters.trade)
+      if (filters?.unitId && filters.unitId !== "all") params.set("unitId", filters.unitId)
+      if (filters?.requestId && filters.requestId !== "all") params.set("requestId", filters.requestId)
+      const res = await fetch(`/api/items?${params}`)
+      const data = await res.json()
+      setItems(data)
+    } catch (err) {
+      console.error("Failed to fetch items:", err)
+    }
+  }, [])
 
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [projectsRes, unitsRes, requestsRes, itemsRes] = await Promise.all([
-          fetch("/api/projects"),
-          fetch("/api/units"),
-          fetch("/api/requests"),
-          fetch("/api/items"),
-        ])
-        const [projectsData, unitsData, requestsData, itemsData] = await Promise.all([
-          projectsRes.json(),
-          unitsRes.json(),
-          requestsRes.json(),
-          itemsRes.json(),
-        ])
-        setProjects(projectsData)
-        setUnits(unitsData)
-        setRequests(requestsData)
-        setItems(itemsData)
+        const [projectsData] = await Promise.all([fetchProjects(), fetchUnits()])
+
+        if (projectsData.length > 0) {
+          const firstId = projectsData[0].id
+          setSelectedProjectId(firstId)
+          await Promise.all([
+            fetchRequests(firstId),
+            fetchItems(firstId),
+          ])
+        }
       } catch (err) {
         console.error("Failed to fetch data:", err)
       } finally {
@@ -60,28 +150,183 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     fetchAll()
-  }, [])
+  }, [fetchProjects, fetchUnits, fetchRequests, fetchItems])
 
   const navigateTo = useCallback((page: Page) => {
     setCurrentPage(page)
   }, [])
 
-  const processRequest = useCallback(
-    async (requestId: string, newItems: Item[]) => {
-      try {
-        const res = await fetch(`/api/requests/${requestId}/process`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: newItems }),
-        })
-        const data = await res.json()
-        setRequests((prev) =>
-          prev.map((r) => (r.id === requestId ? data.request : r))
-        )
-        setItems(data.items)
-      } catch (err) {
-        console.error("Failed to process request:", err)
+  const createProject = useCallback(
+    async (payload: CreateProjectPayload) => {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create project")
       }
+      await fetchProjects()
+    },
+    [fetchProjects],
+  )
+
+  const createUnit = useCallback(
+    async (payload: CreateUnitPayload) => {
+      const res = await fetch("/api/units", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create unit")
+      }
+      await fetchUnits()
+    },
+    [fetchUnits],
+  )
+
+  const uploadUnitsCSV = useCallback(
+    async (file: File): Promise<{ created: number; errors?: string[] }> => {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/units/upload", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload CSV")
+      }
+      await fetchUnits()
+      return data
+    },
+    [fetchUnits],
+  )
+
+  const createRequest = useCallback(
+    async (payload: CreateRequestPayload) => {
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create request")
+      }
+      await fetchRequests(payload.projectId)
+    },
+    [fetchRequests],
+  )
+
+  const draftRequest = useCallback(
+    async (requestId: string): Promise<AIDraftResponse> => {
+      const res = await fetch(`/api/requests/${requestId}/draft`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to generate AI draft")
+      }
+      const data: AIDraftResponse = await res.json()
+
+      if (data.detectedUnitId) {
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId ? { ...r, detectedUnitId: data.detectedUnitId! } : r
+          )
+        )
+      }
+
+      return data
+    },
+    []
+  )
+
+  const processRequest = useCallback(
+    async (requestId: string, unitId: string, drafts: DraftItem[]) => {
+      const draftPayload = drafts.map(({ title, description, trade, priority }) => ({
+        title,
+        description,
+        trade,
+        priority,
+      }))
+      const res = await fetch(`/api/requests/${requestId}/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitId, items: draftPayload }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to process request")
+      }
+      const data = await res.json()
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? data.request : r))
+      )
+      if (selectedProjectId) {
+        await fetchItems(selectedProjectId)
+      }
+    },
+    [fetchItems, selectedProjectId]
+  )
+
+  const archiveProject = useCallback(
+    async (projectId: string, archive: boolean) => {
+      const res = await fetch(`/api/projects/${projectId}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to archive project")
+      }
+      const updated: Project = await res.json()
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? updated : p))
+      )
+    },
+    []
+  )
+
+  const archiveUnit = useCallback(
+    async (unitId: string, archive: boolean) => {
+      const res = await fetch(`/api/units/${unitId}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to archive unit")
+      }
+      const updated: Unit = await res.json()
+      setUnits((prev) =>
+        prev.map((u) => (u.id === unitId ? updated : u))
+      )
+    },
+    []
+  )
+
+  const updateItemStatus = useCallback(
+    async (itemId: string, status: ItemStatus) => {
+      const res = await fetch(`/api/items/${itemId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update item status")
+      }
+      const updated: Item = await res.json()
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? updated : i))
+      )
     },
     []
   )
@@ -96,7 +341,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         units,
         requests,
         items,
+        selectedProjectId,
+        setSelectedProjectId,
+        fetchProjects,
+        fetchUnits,
+        fetchRequests,
+        fetchItems,
+        createProject,
+        createUnit,
+        uploadUnitsCSV,
+        createRequest,
+        draftRequest,
         processRequest,
+        archiveProject,
+        archiveUnit,
+        updateItemStatus,
       }}
     >
       {children}

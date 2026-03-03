@@ -10,6 +10,8 @@ import {
   ChevronsUpDown,
   Paperclip,
   Save,
+  Sparkles,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +41,7 @@ import {
 } from "@/components/ui/command"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useApp } from "@/lib/app-context"
-import type { DraftItem, Trade, Priority, Item } from "@/lib/types"
+import type { DraftItem, Trade, Priority } from "@/lib/types"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -55,7 +57,7 @@ const TRADES: Trade[] = [
 const PRIORITIES: Priority[] = ["Low", "Normal", "Urgent"]
 
 export function RequestReviewPage() {
-  const { currentPage, requests, navigateTo, processRequest, projects, units } = useApp()
+  const { currentPage, requests, navigateTo, processRequest, draftRequest, projects, units } = useApp()
 
   const requestId = currentPage.type === "request-review" ? currentPage.requestId : null
   const requestData = requestId ? requests.find((r) => r.id === requestId) ?? null : null
@@ -74,6 +76,8 @@ export function RequestReviewPage() {
     },
   ])
   const [showUnitError, setShowUnitError] = useState(false)
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
 
   const allUnits = units
 
@@ -110,31 +114,44 @@ export function RequestReviewPage() {
     )
   }
 
+  async function handleAIDraft() {
+    if (!requestData) return
+    setDrafting(true)
+    setDraftError(null)
+    try {
+      const result = await draftRequest(requestData.id)
+      if (result.detectedUnitId) {
+        setSelectedUnitId(result.detectedUnitId)
+        setShowUnitError(false)
+      }
+      if (result.items.length > 0) {
+        setDraftItems(
+          result.items.map((item, i) => ({
+            id: `draft_ai_${Date.now()}_${i}`,
+            title: item.title,
+            description: item.description,
+            trade: item.trade,
+            priority: item.priority,
+          }))
+        )
+      }
+    } catch (err) {
+      setDraftError(err instanceof Error ? err.message : "Failed to generate AI draft")
+    } finally {
+      setDrafting(false)
+    }
+  }
+
   async function handleConfirm() {
     if (!selectedUnitId) {
       setShowUnitError(true)
       return
     }
-    if (!requestData || !selectedUnit) return
+    if (!requestData) return
 
     const validDrafts = draftItems.filter((d) => d.title.trim() && d.trade && d.priority)
-    const now = new Date().toISOString()
-    const newItems: Item[] = validDrafts.map((d, idx) => ({
-      id: `item_new_${Date.now()}_${idx}`,
-      projectId: selectedUnit.projectId,
-      requestId: requestData.id,
-      unitId: selectedUnitId,
-      title: d.title,
-      description: d.description,
-      trade: d.trade,
-      priority: d.priority,
-      status: "New" as const,
-      createdAt: now,
-      updatedAt: now,
-    }))
-
-    await processRequest(requestData.id, newItems)
-    navigateTo({ type: "items", filterUnitId: selectedUnitId })
+    await processRequest(requestData.id, selectedUnitId, validDrafts)
+    navigateTo({ type: "items" })
   }
 
   if (!requestData) return null
@@ -317,13 +334,34 @@ export function RequestReviewPage() {
                   <CardTitle className="text-sm font-semibold">
                     Draft Items ({draftItems.length})
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={addDraftItem}>
-                    <Plus className="mr-1 size-3.5" />
-                    Add Item
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAIDraft}
+                      disabled={drafting || requestData.status === "processed"}
+                    >
+                      {drafting ? (
+                        <Loader2 className="mr-1 size-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-1 size-3.5" />
+                      )}
+                      {drafting ? "Analyzing..." : "AI Draft"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={addDraftItem}>
+                      <Plus className="mr-1 size-3.5" />
+                      Add Item
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
+                {draftError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                    <p className="text-sm text-destructive">{draftError}</p>
+                  </div>
+                )}
                 {draftItems.map((draft, index) => (
                   <div key={draft.id} className="rounded-lg border border-border p-4">
                     <div className="mb-3 flex items-center justify-between">

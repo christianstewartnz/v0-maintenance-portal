@@ -3,6 +3,7 @@ export interface Project {
   name: string
   description: string
   createdAt: string
+  archivedAt: string | null
 }
 
 export interface Unit {
@@ -10,6 +11,7 @@ export interface Unit {
   projectId: string
   unitNumber: string
   address: string
+  archivedAt: string | null
 }
 
 export type RequestStatus = "needs_review" | "processed"
@@ -56,6 +58,9 @@ export interface Item {
   status: ItemStatus
   createdAt: string
   updatedAt: string
+  project?: Pick<Project, "id" | "name">
+  unit?: Pick<Unit, "id" | "unitNumber" | "address">
+  request?: Pick<MaintenanceRequest, "id" | "subject">
 }
 
 export interface DraftItem {
@@ -64,4 +69,14 @@ export interface DraftItem {
   description: string
   trade: Trade
   priority: Priority
+}
+
+export interface AIDraftResponse {
+  detectedUnitId: string | null
+  items: {
+    title: string
+    description: string
+    trade: Trade
+    priority: Priority
+  }[]
 }

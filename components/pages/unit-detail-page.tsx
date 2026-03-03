@@ -1,6 +1,6 @@
 "use client"
 
-import { ClipboardList, AlertTriangle, Eye } from "lucide-react"
+import { ClipboardList, AlertTriangle, Eye, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,6 +21,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useApp } from "@/lib/app-context"
 import { format } from "date-fns"
 
@@ -55,7 +66,7 @@ function getStatusStyle(status: string) {
 }
 
 export function UnitDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, updateItemStatus } = useApp()
 
   const unitId = currentPage.type === "unit-detail" ? currentPage.unitId : null
   const unit = unitId ? units.find((u) => u.id === unitId) : null
@@ -91,6 +102,7 @@ export function UnitDetailPage() {
               <TableHead className="text-xs font-medium">Status</TableHead>
               <TableHead className="text-xs font-medium">Created</TableHead>
               <TableHead className="text-xs font-medium">Updated</TableHead>
+              <TableHead className="text-xs font-medium w-[1%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -109,6 +121,32 @@ export function UnitDetailPage() {
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                   {format(new Date(item.updatedAt), "MMM d")}
+                </TableCell>
+                <TableCell>
+                  {item.status !== "Closed" && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs">
+                          <XCircle className="mr-1 size-3.5" />
+                          Close
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Close this item?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will set the item status to Closed, removing it from active views.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => updateItemStatus(item.id, "Closed")}>
+                            Close Item
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

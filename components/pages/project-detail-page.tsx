@@ -1,7 +1,15 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ClipboardList, AlertTriangle, MessageSquareText, DoorOpen, Search } from "lucide-react"
+import {
+  ClipboardList,
+  AlertTriangle,
+  MessageSquareText,
+  DoorOpen,
+  Search,
+  Archive,
+  ArchiveRestore,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -29,6 +37,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useApp } from "@/lib/app-context"
 import type { ItemStatus, Trade } from "@/lib/types"
 import { format } from "date-fns"
@@ -67,20 +88,30 @@ function getStatusStyle(status: string) {
 }
 
 export function ProjectDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits } = useApp()
 
   const projectId = currentPage.type === "project-detail" ? currentPage.projectId : null
   const project = projectId ? projects.find((p) => p.id === projectId) : null
-  const projectUnits = useMemo(
-    () => (projectId ? units.filter((u) => u.projectId === projectId) : []),
-    [projectId, units]
-  )
 
   const [statusFilter, setStatusFilter] = useState("all")
   const [tradeFilter, setTradeFilter] = useState("all")
   const [unitSearch, setUnitSearch] = useState("")
+  const [showArchivedUnits, setShowArchivedUnits] = useState(false)
+
+  const projectUnits = useMemo(() => {
+    if (!projectId) return []
+    const all = units.filter((u) => u.projectId === projectId)
+    return showArchivedUnits ? all : all.filter((u) => !u.archivedAt)
+  }, [projectId, units, showArchivedUnits])
+
+  const handleToggleArchivedUnits = (checked: boolean) => {
+    setShowArchivedUnits(checked)
+    fetchUnits(checked)
+  }
 
   if (!project || !projectId) return null
+
+  const isArchived = !!project.archivedAt
 
   const projectItems = items.filter((i) => i.projectId === projectId)
   const openItems = projectItems.filter((i) => !["Completed", "Closed"].includes(i.status))
@@ -111,23 +142,57 @@ export function ProjectDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="border-b border-border px-6 py-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                className="cursor-pointer text-muted-foreground hover:text-foreground"
-                onClick={() => navigateTo({ type: "projects" })}
-              >
-                Projects
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{project.name}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex items-center gap-3">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  className="cursor-pointer text-muted-foreground hover:text-foreground"
+                  onClick={() => navigateTo({ type: "projects" })}
+                >
+                  Projects
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{project.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          {isArchived && (
+            <Badge variant="secondary" className="text-xs">Archived</Badge>
+          )}
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              {isArchived ? (
+                <><ArchiveRestore className="mr-1.5 size-3.5" /> Unarchive</>
+              ) : (
+                <><Archive className="mr-1.5 size-3.5" /> Archive</>
+              )}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {isArchived ? "Unarchive" : "Archive"} &ldquo;{project.name}&rdquo;?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {isArchived
+                  ? "This will restore the project to active views."
+                  : "This will hide the project from default views. Units, requests, and items will be preserved."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => archiveProject(project.id, !isArchived)}>
+                {isArchived ? "Unarchive" : "Archive"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="flex-1 overflow-auto p-6">
@@ -251,9 +316,18 @@ export function ProjectDetailPage() {
           <TabsContent value="units" className="mt-0">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-semibold">
-                  Units Overview ({projectUnits.length})
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold">
+                    Units Overview ({projectUnits.length})
+                  </CardTitle>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <Checkbox
+                      checked={showArchivedUnits}
+                      onCheckedChange={(checked) => handleToggleArchivedUnits(checked === true)}
+                    />
+                    Show archived
+                  </label>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="rounded-lg border border-border">
@@ -265,6 +339,7 @@ export function ProjectDetailPage() {
                         <TableHead className="text-xs font-medium">Open Items</TableHead>
                         <TableHead className="text-xs font-medium">High Priority</TableHead>
                         <TableHead className="text-xs font-medium">Last Activity</TableHead>
+                        <TableHead className="text-xs font-medium w-[1%]" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -276,6 +351,7 @@ export function ProjectDetailPage() {
                         </TableRow>
                       ) : (
                         projectUnits.map((unit) => {
+                          const isUnitArchived = !!unit.archivedAt
                           const unitItems = openItems.filter((i) => i.unitId === unit.id)
                           const unitHighPriority = unitItems.filter((i) => i.priority === "Urgent")
                           const allUnitItems = items.filter((i) => i.unitId === unit.id)
@@ -287,11 +363,14 @@ export function ProjectDetailPage() {
                           return (
                             <TableRow
                               key={unit.id}
-                              className="cursor-pointer hover:bg-accent/50"
+                              className={`cursor-pointer hover:bg-accent/50 ${isUnitArchived ? "opacity-60" : ""}`}
                               onClick={() => navigateTo({ type: "unit-detail", unitId: unit.id })}
                             >
                               <TableCell className="text-sm font-medium text-foreground">
-                                Unit {unit.unitNumber}
+                                <span className="flex items-center gap-2">
+                                  Unit {unit.unitNumber}
+                                  {isUnitArchived && <Badge variant="secondary" className="text-[10px]">Archived</Badge>}
+                                </span>
                               </TableCell>
                               <TableCell className="text-sm text-muted-foreground">{unit.address}</TableCell>
                               <TableCell>
@@ -311,6 +390,33 @@ export function ProjectDetailPage() {
                               <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                                 {lastActivity ? format(new Date(lastActivity), "MMM d") : "--"}
                               </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="size-7">
+                                      {isUnitArchived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        {isUnitArchived ? "Unarchive" : "Archive"} Unit {unit.unitNumber}?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {isUnitArchived
+                                          ? "This will restore the unit to active views."
+                                          : "This will hide the unit from default views. Items will be preserved."}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => archiveUnit(unit.id, !isUnitArchived)}>
+                                        {isUnitArchived ? "Unarchive" : "Archive"}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </TableCell>
                             </TableRow>
                           )
                         })
@@ -321,6 +427,7 @@ export function ProjectDetailPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
         </Tabs>
       </div>
     </div>

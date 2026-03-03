@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Eye, MessageSquareText, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -31,39 +38,94 @@ import type { RequestStatus } from "@/lib/types"
 import { format } from "date-fns"
 
 export function RequestsListPage() {
-  const { requests, navigateTo, units } = useApp()
+  const {
+    requests,
+    navigateTo,
+    units,
+    projects,
+    selectedProjectId,
+    setSelectedProjectId,
+    fetchRequests,
+    createRequest,
+  } = useApp()
+
   const [statusFilter, setStatusFilter] = useState<"all" | RequestStatus>("all")
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
   const [fromName, setFromName] = useState("")
   const [fromEmail, setFromEmail] = useState("")
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
+  const [creating, setCreating] = useState(false)
 
-  const filtered =
-    statusFilter === "all"
-      ? requests
-      : requests.filter((r) => r.status === statusFilter)
+  const reloadRequests = useCallback(
+    (projectId: string | null, status: string) => {
+      if (projectId) fetchRequests(projectId, status === "all" ? undefined : status)
+    },
+    [fetchRequests],
+  )
 
-  function handleCreateRequest() {
-    setPasteDialogOpen(false)
-    setFromName("")
-    setFromEmail("")
-    setSubject("")
-    setBody("")
+  useEffect(() => {
+    reloadRequests(selectedProjectId, statusFilter)
+  }, [selectedProjectId, statusFilter, reloadRequests])
+
+  function handleProjectChange(projectId: string) {
+    setSelectedProjectId(projectId)
+    setStatusFilter("all")
+  }
+
+  function handleStatusChange(value: string) {
+    setStatusFilter(value as "all" | RequestStatus)
+  }
+
+  async function handleCreateRequest() {
+    if (!selectedProjectId || !subject.trim() || !body.trim()) return
+    setCreating(true)
+    try {
+      await createRequest({
+        projectId: selectedProjectId,
+        subject,
+        bodyRaw: body,
+        fromName: fromName || undefined,
+        fromEmail: fromEmail || undefined,
+      })
+      setPasteDialogOpen(false)
+      setFromName("")
+      setFromEmail("")
+      setSubject("")
+      setBody("")
+    } catch (err) {
+      console.error("Failed to create request:", err)
+    } finally {
+      setCreating(false)
+    }
   }
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Requests</h1>
-          <p className="text-sm text-muted-foreground">
-            Review incoming maintenance requests
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Requests</h1>
+            <p className="text-sm text-muted-foreground">
+              Review incoming maintenance requests
+            </p>
+          </div>
+          <Select value={selectedProjectId ?? ""} onValueChange={handleProjectChange}>
+            <SelectTrigger size="sm">
+              <SelectValue placeholder="Select project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Dialog open={pasteDialogOpen} onOpenChange={setPasteDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="sm" disabled={!selectedProjectId}>
               <Plus className="mr-1.5 size-4" />
               Paste Email
             </Button>
@@ -120,8 +182,11 @@ export function RequestsListPage() {
               <Button variant="outline" onClick={() => setPasteDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateRequest} disabled={!subject.trim()}>
-                Create Request
+              <Button
+                onClick={handleCreateRequest}
+                disabled={!subject.trim() || !body.trim() || creating}
+              >
+                {creating ? "Creating..." : "Create Request"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -133,26 +198,26 @@ export function RequestsListPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold">
-                Requests ({filtered.length})
+                Requests ({requests.length})
               </CardTitle>
-              <Tabs
-                value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
-              >
+              <Tabs value={statusFilter} onValueChange={handleStatusChange}>
                 <TabsList>
-                  <TabsTrigger value="all">All ({requests.length})</TabsTrigger>
-                  <TabsTrigger value="needs_review">
-                    Needs Review ({requests.filter((r) => r.status === "needs_review").length})
-                  </TabsTrigger>
-                  <TabsTrigger value="processed">
-                    Processed ({requests.filter((r) => r.status === "processed").length})
-                  </TabsTrigger>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="needs_review">Needs Review</TabsTrigger>
+                  <TabsTrigger value="processed">Processed</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
           </CardHeader>
           <CardContent>
-            {filtered.length === 0 ? (
+            {!selectedProjectId ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <MessageSquareText className="mb-3 size-10 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Select a project to view requests
+                </p>
+              </div>
+            ) : requests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <MessageSquareText className="mb-3 size-10 text-muted-foreground/40" />
                 <p className="text-sm font-medium text-muted-foreground">No requests found</p>
@@ -171,7 +236,7 @@ export function RequestsListPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((req) => {
+                    {requests.map((req) => {
                       const detectedUnit = req.detectedUnitId
                         ? units.find((u) => u.id === req.detectedUnitId)
                         : null
