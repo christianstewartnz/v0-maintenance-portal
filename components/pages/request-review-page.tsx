@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/command"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useApp } from "@/lib/app-context"
-import { mockUnits, mockProjects } from "@/lib/mock-data"
 import type { DraftItem, Trade, Priority, Item } from "@/lib/types"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -56,7 +55,7 @@ const TRADES: Trade[] = [
 const PRIORITIES: Priority[] = ["Low", "Normal", "Urgent"]
 
 export function RequestReviewPage() {
-  const { currentPage, requests, navigateTo, processRequest } = useApp()
+  const { currentPage, requests, navigateTo, processRequest, projects, units } = useApp()
 
   const requestId = currentPage.type === "request-review" ? currentPage.requestId : null
   const requestData = requestId ? requests.find((r) => r.id === requestId) ?? null : null
@@ -76,11 +75,11 @@ export function RequestReviewPage() {
   ])
   const [showUnitError, setShowUnitError] = useState(false)
 
-  const allUnits = mockUnits
+  const allUnits = units
 
   const selectedUnit = allUnits.find((u) => u.id === selectedUnitId)
   const selectedProject = selectedUnit
-    ? mockProjects.find((p) => p.id === selectedUnit.projectId)
+    ? projects.find((p) => p.id === selectedUnit.projectId)
     : null
 
   const canConfirm = useMemo(() => {
@@ -111,7 +110,7 @@ export function RequestReviewPage() {
     )
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!selectedUnitId) {
       setShowUnitError(true)
       return
@@ -134,7 +133,7 @@ export function RequestReviewPage() {
       updatedAt: now,
     }))
 
-    processRequest(requestData.id, newItems)
+    await processRequest(requestData.id, newItems)
     navigateTo({ type: "items", filterUnitId: selectedUnitId })
   }
 
@@ -272,7 +271,7 @@ export function RequestReviewPage() {
                         <CommandEmpty>No units found.</CommandEmpty>
                         <CommandGroup>
                           {allUnits.map((unit) => {
-                            const proj = mockProjects.find((p) => p.id === unit.projectId)
+                            const proj = projects.find((p) => p.id === unit.projectId)
                             return (
                               <CommandItem
                                 key={unit.id}

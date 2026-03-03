@@ -1,0 +1,103 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../lib/generated/prisma"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Project {
+  id          String   @id
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+
+  units    Unit[]
+  requests MaintenanceRequest[]
+  items    Item[]
+}
+
+model Unit {
+  id         String @id
+  projectId  String
+  unitNumber String
+  address    String
+
+  project          Project              @relation(fields: [projectId], references: [id])
+  detectedRequests MaintenanceRequest[]
+  items            Item[]
+
+  @@index([projectId])
+}
+
+enum RequestStatus {
+  needs_review
+  processed
+}
+
+model MaintenanceRequest {
+  id             String        @id
+  projectId      String
+  fromName       String
+  fromEmail      String
+  subject        String
+  bodyRaw        String
+  receivedAt     DateTime
+  status         RequestStatus @default(needs_review)
+  detectedUnitId String?
+
+  project      Project @relation(fields: [projectId], references: [id])
+  detectedUnit Unit?   @relation(fields: [detectedUnitId], references: [id])
+  items        Item[]
+
+  @@index([projectId])
+  @@index([detectedUnitId])
+}
+
+enum Trade {
+  Plumbing
+  Electrical
+  Carpentry
+  Painting
+  Appliance
+  General
+  Other
+}
+
+enum Priority {
+  Low
+  Normal
+  Urgent
+}
+
+enum ItemStatus {
+  New
+  Assigned
+  InProgress @map("In Progress")
+  Completed
+  Closed
+}
+
+model Item {
+  id          String     @id
+  projectId   String
+  requestId   String
+  unitId      String
+  title       String
+  description String
+  trade       Trade
+  priority    Priority
+  status      ItemStatus @default(New)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project Project            @relation(fields: [projectId], references: [id])
+  request MaintenanceRequest @relation(fields: [requestId], references: [id])
+  unit    Unit               @relation(fields: [unitId], references: [id])
+
+  @@index([projectId])
+  @@index([requestId])
+  @@index([unitId])
+}

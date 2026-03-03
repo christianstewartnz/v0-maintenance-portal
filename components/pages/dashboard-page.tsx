@@ -12,7 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useApp } from "@/lib/app-context"
-import { mockProjects, mockUnits } from "@/lib/mock-data"
 import { format } from "date-fns"
 
 function getPriorityStyle(priority: string) {
@@ -46,7 +45,7 @@ function getStatusStyle(status: string) {
 }
 
 export function DashboardPage() {
-  const { items, requests, navigateTo } = useApp()
+  const { items, requests, navigateTo, projects, units } = useApp()
 
   const openItems = items.filter((i) => !["Completed", "Closed"].includes(i.status))
   const highPriorityItems = openItems.filter((i) => i.priority === "Urgent")
@@ -135,8 +134,8 @@ export function DashboardPage() {
                   </TableHeader>
                   <TableBody>
                     {openItems.map((item) => {
-                      const project = mockProjects.find((p) => p.id === item.projectId)
-                      const unit = mockUnits.find((u) => u.id === item.unitId)
+                      const project = projects.find((p) => p.id === item.projectId)
+                      const unit = units.find((u) => u.id === item.unitId)
                       return (
                         <TableRow
                           key={item.id}

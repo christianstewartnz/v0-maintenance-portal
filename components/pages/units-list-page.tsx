@@ -21,15 +21,14 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useApp } from "@/lib/app-context"
-import { mockProjects, mockUnits } from "@/lib/mock-data"
 import { format } from "date-fns"
 
 export function UnitsListPage() {
-  const { items, navigateTo } = useApp()
+  const { items, navigateTo, projects, units } = useApp()
   const [projectFilter, setProjectFilter] = useState("all")
   const [search, setSearch] = useState("")
 
-  const filtered = mockUnits.filter((u) => {
+  const filtered = units.filter((u) => {
     if (projectFilter !== "all" && u.projectId !== projectFilter) return false
     if (search) {
       const q = search.toLowerCase()
@@ -60,7 +59,7 @@ export function UnitsListPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Projects</SelectItem>
-                    {mockProjects.map((p) => (
+                    {projects.map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -98,7 +97,7 @@ export function UnitsListPage() {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((unit) => {
-                      const project = mockProjects.find((p) => p.id === unit.projectId)
+                      const project = projects.find((p) => p.id === unit.projectId)
                       const openItems = items.filter(
                         (i) => i.unitId === unit.id && !["Completed", "Closed"].includes(i.status)
                       )

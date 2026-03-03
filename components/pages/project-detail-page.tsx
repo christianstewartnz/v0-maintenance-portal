@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useApp } from "@/lib/app-context"
-import { mockProjects, mockUnits } from "@/lib/mock-data"
 import type { ItemStatus, Trade } from "@/lib/types"
 import { format } from "date-fns"
 
@@ -68,13 +67,13 @@ function getStatusStyle(status: string) {
 }
 
 export function ProjectDetailPage() {
-  const { currentPage, items, requests, navigateTo } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units } = useApp()
 
   const projectId = currentPage.type === "project-detail" ? currentPage.projectId : null
-  const project = projectId ? mockProjects.find((p) => p.id === projectId) : null
+  const project = projectId ? projects.find((p) => p.id === projectId) : null
   const projectUnits = useMemo(
-    () => (projectId ? mockUnits.filter((u) => u.projectId === projectId) : []),
-    [projectId]
+    () => (projectId ? units.filter((u) => u.projectId === projectId) : []),
+    [projectId, units]
   )
 
   const [statusFilter, setStatusFilter] = useState("all")
@@ -95,7 +94,7 @@ export function ProjectDetailPage() {
     if (statusFilter !== "all" && i.status !== statusFilter) return false
     if (tradeFilter !== "all" && i.trade !== tradeFilter) return false
     if (unitSearch) {
-      const unit = mockUnits.find((u) => u.id === i.unitId)
+      const unit = units.find((u) => u.id === i.unitId)
       if (!unit) return false
       const q = unitSearch.toLowerCase()
       if (!unit.unitNumber.toLowerCase().includes(q) && !unit.address.toLowerCase().includes(q)) return false
@@ -217,7 +216,7 @@ export function ProjectDetailPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredItems.map((item) => {
-                          const unit = mockUnits.find((u) => u.id === item.unitId)
+                          const unit = units.find((u) => u.id === item.unitId)
                           return (
                             <TableRow
                               key={item.id}

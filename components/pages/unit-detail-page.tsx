@@ -22,7 +22,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useApp } from "@/lib/app-context"
-import { mockUnits, mockProjects } from "@/lib/mock-data"
 import { format } from "date-fns"
 
 function getPriorityStyle(priority: string) {
@@ -56,11 +55,11 @@ function getStatusStyle(status: string) {
 }
 
 export function UnitDetailPage() {
-  const { currentPage, items, requests, navigateTo } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units } = useApp()
 
   const unitId = currentPage.type === "unit-detail" ? currentPage.unitId : null
-  const unit = unitId ? mockUnits.find((u) => u.id === unitId) : null
-  const project = unit ? mockProjects.find((p) => p.id === unit.projectId) : null
+  const unit = unitId ? units.find((u) => u.id === unitId) : null
+  const project = unit ? projects.find((p) => p.id === unit.projectId) : null
 
   if (!unit || !project) return null
 

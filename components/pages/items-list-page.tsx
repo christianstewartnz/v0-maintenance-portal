@@ -22,7 +22,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useApp } from "@/lib/app-context"
-import { mockProjects, mockUnits } from "@/lib/mock-data"
 import type { ItemStatus, Trade } from "@/lib/types"
 import { format } from "date-fns"
 
@@ -68,7 +67,7 @@ function getStatusStyle(status: string) {
 }
 
 export function ItemsListPage() {
-  const { currentPage, items, navigateTo } = useApp()
+  const { currentPage, items, navigateTo, projects, units } = useApp()
 
   const initialUnitFilter = currentPage.type === "items" && currentPage.filterUnitId
     ? currentPage.filterUnitId
@@ -91,7 +90,7 @@ export function ItemsListPage() {
       if (priorityFilter !== "all" && item.priority !== priorityFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        const unit = mockUnits.find((u) => u.id === item.unitId)
+        const unit = units.find((u) => u.id === item.unitId)
         if (
           !item.title.toLowerCase().includes(q) &&
           !(unit?.unitNumber.toLowerCase().includes(q)) &&
@@ -100,7 +99,7 @@ export function ItemsListPage() {
       }
       return true
     })
-  }, [items, projectFilter, unitFilter, statusFilter, tradeFilter, priorityFilter, search])
+  }, [items, projectFilter, unitFilter, statusFilter, tradeFilter, priorityFilter, search, units])
 
   return (
     <div className="flex flex-1 flex-col">
@@ -139,7 +138,7 @@ export function ItemsListPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Projects</SelectItem>
-              {mockProjects.map((p) => (
+              {projects.map((p) => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
@@ -229,8 +228,8 @@ export function ItemsListPage() {
                     </TableHeader>
                     <TableBody>
                       {filtered.map((item) => {
-                        const project = mockProjects.find((p) => p.id === item.projectId)
-                        const unit = mockUnits.find((u) => u.id === item.unitId)
+                        const project = projects.find((p) => p.id === item.projectId)
+                        const unit = units.find((u) => u.id === item.unitId)
                         return (
                           <TableRow
                             key={item.id}
@@ -284,8 +283,8 @@ export function ItemsListPage() {
                   </div>
                   <div className="flex flex-col gap-2">
                     {columnItems.map((item) => {
-                      const unit = mockUnits.find((u) => u.id === item.unitId)
-                      const project = mockProjects.find((p) => p.id === item.projectId)
+                      const unit = units.find((u) => u.id === item.unitId)
+                      const project = projects.find((p) => p.id === item.projectId)
                       return (
                         <Card
                           key={item.id}

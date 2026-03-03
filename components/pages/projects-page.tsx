@@ -4,11 +4,10 @@ import { Building2, ClipboardList, MessageSquareText, ArrowRight, Clock } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/lib/app-context"
-import { mockProjects, mockUnits } from "@/lib/mock-data"
 import { format } from "date-fns"
 
 export function ProjectsPage() {
-  const { items, requests, navigateTo } = useApp()
+  const { items, requests, navigateTo, projects, units } = useApp()
 
   return (
     <div className="flex flex-1 flex-col">
@@ -18,8 +17,8 @@ export function ProjectsPage() {
       </div>
       <div className="flex-1 overflow-auto p-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {mockProjects.map((project) => {
-            const unitCount = mockUnits.filter((u) => u.projectId === project.id).length
+          {projects.map((project) => {
+            const unitCount = units.filter((u) => u.projectId === project.id).length
             const openItems = items.filter(
               (i) => i.projectId === project.id && !["Completed", "Closed"].includes(i.status)
             ).length

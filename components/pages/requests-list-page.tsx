@@ -27,12 +27,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useApp } from "@/lib/app-context"
-import { mockUnits } from "@/lib/mock-data"
 import type { RequestStatus } from "@/lib/types"
 import { format } from "date-fns"
 
 export function RequestsListPage() {
-  const { requests, navigateTo } = useApp()
+  const { requests, navigateTo, units } = useApp()
   const [statusFilter, setStatusFilter] = useState<"all" | RequestStatus>("all")
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
   const [fromName, setFromName] = useState("")
@@ -174,7 +173,7 @@ export function RequestsListPage() {
                   <TableBody>
                     {filtered.map((req) => {
                       const detectedUnit = req.detectedUnitId
-                        ? mockUnits.find((u) => u.id === req.detectedUnitId)
+                        ? units.find((u) => u.id === req.detectedUnitId)
                         : null
                       return (
                         <TableRow key={req.id}>

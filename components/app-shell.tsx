@@ -14,7 +14,18 @@ import { RequestReviewPage } from "@/components/pages/request-review-page"
 import { ItemsListPage } from "@/components/pages/items-list-page"
 
 export function AppShell() {
-  const { currentPage } = useApp()
+  const { currentPage, loading } = useApp()
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   function renderPage() {
     switch (currentPage.type) {
