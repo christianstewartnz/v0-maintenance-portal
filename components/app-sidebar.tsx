@@ -3,7 +3,6 @@
 import {
   LayoutDashboard,
   Building2,
-  DoorOpen,
   MessageSquareText,
   ClipboardList,
   Wrench,
@@ -27,7 +26,6 @@ import type { Page } from "@/lib/app-context"
 const navItems: { label: string; icon: typeof LayoutDashboard; pageType: Page["type"] }[] = [
   { label: "Dashboard", icon: LayoutDashboard, pageType: "dashboard" },
   { label: "Projects", icon: Building2, pageType: "projects" },
-  { label: "Units", icon: DoorOpen, pageType: "units" },
   { label: "Requests", icon: MessageSquareText, pageType: "requests" },
   { label: "Items", icon: ClipboardList, pageType: "items" },
 ]

@@ -14,11 +14,20 @@ export interface Unit {
   archivedAt: string | null
 }
 
-export type RequestStatus = "needs_review" | "processed"
+export type RequestStatus = "needs_review" | "processed" | "error"
+
+export interface MaintenanceAttachment {
+  id: string
+  requestId: string
+  fileName: string
+  mimeType: string
+  storagePath: string
+  createdAt: string
+}
 
 export interface MaintenanceRequest {
   id: string
-  projectId: string
+  projectId: string | null
   fromName: string
   fromEmail: string
   subject: string
@@ -26,6 +35,18 @@ export interface MaintenanceRequest {
   receivedAt: string
   status: RequestStatus
   detectedUnitId?: string
+  attachments?: MaintenanceAttachment[]
+}
+
+export interface ImportFileResult {
+  filename: string
+  status: "success" | "error"
+  requestIds: string[]
+  error?: string
+}
+
+export interface ImportEmailResponse {
+  results: ImportFileResult[]
 }
 
 export type Trade =
@@ -72,6 +93,7 @@ export interface DraftItem {
 }
 
 export interface AIDraftResponse {
+  detectedProjectId: string | null
   detectedUnitId: string | null
   items: {
     title: string

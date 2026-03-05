@@ -6,22 +6,33 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const projectId = searchParams.get("projectId");
   const status = searchParams.get("status");
+  const unassigned = searchParams.get("unassigned");
+  const search = searchParams.get("search");
 
-  if (!projectId) {
-    return NextResponse.json(
-      { error: "projectId query parameter is required" },
-      { status: 400 },
-    );
+  const where: Prisma.MaintenanceRequestWhereInput = {};
+
+  if (unassigned === "true") {
+    where.projectId = null;
+  } else if (projectId) {
+    where.projectId = projectId;
   }
 
-  const where: Prisma.MaintenanceRequestWhereInput = { projectId };
-  if (status === "needs_review" || status === "processed") {
+  if (status === "needs_review" || status === "processed" || status === "error") {
     where.status = status;
+  }
+
+  if (search) {
+    where.OR = [
+      { subject: { contains: search, mode: "insensitive" } },
+      { fromName: { contains: search, mode: "insensitive" } },
+      { fromEmail: { contains: search, mode: "insensitive" } },
+    ];
   }
 
   const requests = await prisma.maintenanceRequest.findMany({
     where,
     orderBy: { receivedAt: "desc" },
+    include: { attachments: true },
   });
   return NextResponse.json(requests);
 }
@@ -30,9 +41,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { projectId, subject, bodyRaw, fromName, fromEmail } = body;
 
-  if (!projectId || !subject || !bodyRaw) {
+  if (!subject || !bodyRaw) {
     return NextResponse.json(
-      { error: "projectId, subject, and bodyRaw are required" },
+      { error: "subject and bodyRaw are required" },
       { status: 400 },
     );
   }
@@ -40,7 +51,7 @@ export async function POST(req: NextRequest) {
   const created = await prisma.maintenanceRequest.create({
     data: {
       id: crypto.randomUUID(),
-      projectId,
+      projectId: projectId || null,
       subject,
       bodyRaw,
       fromName: fromName || "",

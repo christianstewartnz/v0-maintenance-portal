@@ -7,7 +7,6 @@ import { useApp } from "@/lib/app-context"
 import { DashboardPage } from "@/components/pages/dashboard-page"
 import { ProjectsPage } from "@/components/pages/projects-page"
 import { ProjectDetailPage } from "@/components/pages/project-detail-page"
-import { UnitsListPage } from "@/components/pages/units-list-page"
 import { UnitDetailPage } from "@/components/pages/unit-detail-page"
 import { RequestsListPage } from "@/components/pages/requests-list-page"
 import { RequestReviewPage } from "@/components/pages/request-review-page"
@@ -35,8 +34,6 @@ export function AppShell() {
         return <ProjectsPage />
       case "project-detail":
         return <ProjectDetailPage />
-      case "units":
-        return <UnitsListPage />
       case "unit-detail":
         return <UnitDetailPage />
       case "requests":

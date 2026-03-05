@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef, useCallback } from "react"
 import {
   ClipboardList,
   AlertTriangle,
@@ -9,10 +9,16 @@ import {
   Search,
   Archive,
   ArchiveRestore,
+  Plus,
+  Upload,
+  Download,
+  Eye,
+  Paperclip,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -50,8 +56,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { useApp } from "@/lib/app-context"
-import type { ItemStatus, Trade } from "@/lib/types"
+import type { ItemStatus, Trade, RequestStatus } from "@/lib/types"
 import { format } from "date-fns"
 
 const ALL_STATUSES: ItemStatus[] = ["New", "Assigned", "In Progress", "Completed", "Closed"]
@@ -88,25 +103,91 @@ function getStatusStyle(status: string) {
 }
 
 export function ProjectDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits, createUnit, uploadUnitsCSV } = useApp()
 
   const projectId = currentPage.type === "project-detail" ? currentPage.projectId : null
   const project = projectId ? projects.find((p) => p.id === projectId) : null
 
+  const [activeTab, setActiveTab] = useState("items")
   const [statusFilter, setStatusFilter] = useState("all")
   const [tradeFilter, setTradeFilter] = useState("all")
   const [unitSearch, setUnitSearch] = useState("")
   const [showArchivedUnits, setShowArchivedUnits] = useState(false)
+  const [unitTableSearch, setUnitTableSearch] = useState("")
+  const [requestStatusFilter, setRequestStatusFilter] = useState<"all" | RequestStatus>("all")
+
+  const [addUnitOpen, setAddUnitOpen] = useState(false)
+  const [newUnitNumber, setNewUnitNumber] = useState("")
+  const [newAddress, setNewAddress] = useState("")
+  const [creatingUnit, setCreatingUnit] = useState(false)
+
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ created: number; error?: string; rows?: { row: number; message: string }[] } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const projectUnits = useMemo(() => {
     if (!projectId) return []
-    const all = units.filter((u) => u.projectId === projectId)
-    return showArchivedUnits ? all : all.filter((u) => !u.archivedAt)
-  }, [projectId, units, showArchivedUnits])
+    let all = units.filter((u) => u.projectId === projectId)
+    if (!showArchivedUnits) all = all.filter((u) => !u.archivedAt)
+    if (unitTableSearch) {
+      const q = unitTableSearch.toLowerCase()
+      all = all.filter(
+        (u) => u.unitNumber.toLowerCase().includes(q) || u.address.toLowerCase().includes(q),
+      )
+    }
+    return all
+  }, [projectId, units, showArchivedUnits, unitTableSearch])
 
   const handleToggleArchivedUnits = (checked: boolean) => {
     setShowArchivedUnits(checked)
     fetchUnits(checked)
+  }
+
+  const handleCreateUnit = async () => {
+    if (!projectId || !newUnitNumber.trim() || !newAddress.trim()) return
+    setCreatingUnit(true)
+    try {
+      await createUnit({ projectId, unitNumber: newUnitNumber, address: newAddress })
+      setAddUnitOpen(false)
+      setNewUnitNumber("")
+      setNewAddress("")
+    } catch (err) {
+      console.error("Failed to create unit:", err)
+    } finally {
+      setCreatingUnit(false)
+    }
+  }
+
+  const handleDownloadTemplate = useCallback(() => {
+    const header = "project,unitNumber,address"
+    const sampleRow = project ? `${project.name},,` : ",,"
+    const csv = [header, sampleRow].join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "units-template.csv"
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [project])
+
+  const handleUploadCSV = async () => {
+    if (!csvFile || !projectId) return
+    setUploading(true)
+    setUploadResult(null)
+    try {
+      const result = await uploadUnitsCSV(csvFile)
+      setUploadResult(result)
+      setCsvFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    } catch (err) {
+      console.error("Failed to upload CSV:", err)
+      setUploadResult({ created: 0, error: err instanceof Error ? err.message : "Upload failed" })
+    } finally {
+      setUploading(false)
+    }
   }
 
   if (!project || !projectId) return null
@@ -133,11 +214,16 @@ export function ProjectDetailPage() {
     return true
   })
 
+  const projectRequests = requests.filter((r) => r.projectId === projectId)
+  const filteredProjectRequests = requestStatusFilter === "all"
+    ? projectRequests
+    : projectRequests.filter((r) => r.status === requestStatusFilter)
+
   const kpis = [
-    { label: "Open Items", value: openItems.length, icon: ClipboardList, color: "text-primary", bg: "bg-primary/10" },
-    { label: "High Priority Items", value: highPriority.length, icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
-    { label: "Requests Needing Review", value: reviewCount, icon: MessageSquareText, color: "text-warning-foreground", bg: "bg-warning/10" },
-    { label: "Units With Open Items", value: unitsWithOpenItems, icon: DoorOpen, color: "text-chart-2", bg: "bg-chart-2/10" },
+    { label: "Open Items", value: openItems.length, icon: ClipboardList, color: "text-primary", bg: "bg-primary/10", tab: "items" as const },
+    { label: "High Priority Items", value: highPriority.length, icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10", tab: "items" as const },
+    { label: "Requests Needing Review", value: reviewCount, icon: MessageSquareText, color: "text-warning-foreground", bg: "bg-warning/10", tab: "requests" as const },
+    { label: "Units With Open Items", value: unitsWithOpenItems, icon: DoorOpen, color: "text-chart-2", bg: "bg-chart-2/10", tab: "units" as const },
   ]
 
   return (
@@ -198,7 +284,11 @@ export function ProjectDetailPage() {
       <div className="flex-1 overflow-auto p-6">
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {kpis.map((kpi) => (
-            <Card key={kpi.label}>
+            <Card
+              key={kpi.label}
+              className="cursor-pointer transition-colors hover:bg-accent/50"
+              onClick={() => setActiveTab(kpi.tab)}
+            >
               <CardContent className="flex items-center gap-4 p-4">
                 <div className={`flex size-10 items-center justify-center rounded-lg ${kpi.bg}`}>
                   <kpi.icon className={`size-5 ${kpi.color}`} />
@@ -212,10 +302,11 @@ export function ProjectDetailPage() {
           ))}
         </div>
 
-        <Tabs defaultValue="items" className="flex flex-col gap-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
           <TabsList className="w-fit">
             <TabsTrigger value="items">Open Items</TabsTrigger>
-            <TabsTrigger value="units">Units Overview</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="units">Units</TabsTrigger>
           </TabsList>
 
           <TabsContent value="items" className="mt-0">
@@ -313,20 +404,236 @@ export function ProjectDetailPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="units" className="mt-0">
+          <TabsContent value="requests" className="mt-0">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold">
-                    Units Overview ({projectUnits.length})
+                    Requests ({filteredProjectRequests.length})
                   </CardTitle>
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                    <Checkbox
-                      checked={showArchivedUnits}
-                      onCheckedChange={(checked) => handleToggleArchivedUnits(checked === true)}
-                    />
-                    Show archived
-                  </label>
+                  <Tabs value={requestStatusFilter} onValueChange={(v) => setRequestStatusFilter(v as "all" | RequestStatus)}>
+                    <TabsList>
+                      <TabsTrigger value="all">All</TabsTrigger>
+                      <TabsTrigger value="needs_review">Needs Review</TabsTrigger>
+                      <TabsTrigger value="processed">Processed</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredProjectRequests.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <MessageSquareText className="mb-3 size-10 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-muted-foreground">No requests found</p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="text-xs font-medium">Received</TableHead>
+                          <TableHead className="text-xs font-medium">From</TableHead>
+                          <TableHead className="text-xs font-medium">Subject</TableHead>
+                          <TableHead className="text-xs font-medium">Detected Unit</TableHead>
+                          <TableHead className="text-xs font-medium">Status</TableHead>
+                          <TableHead className="w-20 text-right text-xs font-medium">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProjectRequests.map((req) => {
+                          const detectedUnit = req.detectedUnitId
+                            ? units.find((u) => u.id === req.detectedUnitId)
+                            : null
+                          return (
+                            <TableRow key={req.id}>
+                              <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                                {format(new Date(req.receivedAt), "MMM d, h:mm a")}
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">{req.fromName}</p>
+                                  <p className="text-xs text-muted-foreground">{req.fromEmail}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="max-w-[200px] text-sm text-foreground">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="truncate">{req.subject}</span>
+                                  {req.attachments && req.attachments.length > 0 && (
+                                    <Paperclip className="size-3 shrink-0 text-muted-foreground" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {detectedUnit ? `Unit ${detectedUnit.unitNumber}` : "--"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={req.status === "needs_review" ? "outline" : "secondary"}
+                                  className={
+                                    req.status === "needs_review"
+                                      ? "border-warning/30 bg-warning/10 text-warning-foreground"
+                                      : req.status === "error"
+                                        ? "border-destructive/30 bg-destructive/10 text-destructive"
+                                        : ""
+                                  }
+                                >
+                                  {req.status === "needs_review"
+                                    ? "Needs Review"
+                                    : req.status === "error"
+                                      ? "Error"
+                                      : "Processed"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() =>
+                                    navigateTo({ type: "request-review", requestId: req.id })
+                                  }
+                                >
+                                  <Eye className="mr-1 size-3.5" />
+                                  Review
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="units" className="mt-0">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-sm font-semibold">
+                    Units ({projectUnits.length})
+                  </CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                      <Checkbox
+                        checked={showArchivedUnits}
+                        onCheckedChange={(checked) => handleToggleArchivedUnits(checked === true)}
+                      />
+                      Show archived
+                    </label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search units..."
+                        value={unitTableSearch}
+                        onChange={(e) => setUnitTableSearch(e.target.value)}
+                        className="w-48 pl-8 text-xs"
+                      />
+                    </div>
+
+                    <Dialog open={csvDialogOpen} onOpenChange={(open) => { setCsvDialogOpen(open); if (!open) { setUploadResult(null); setCsvFile(null) } }}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <Upload className="mr-1.5 size-4" />
+                          Upload CSV
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Upload Units CSV</DialogTitle>
+                          <DialogDescription>
+                            Upload a CSV with columns: <code className="text-xs bg-muted px-1 py-0.5 rounded">project</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">unitNumber</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">address</code>. Download the template to get started.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-4 py-2">
+                          <Button variant="outline" size="sm" className="self-start" onClick={handleDownloadTemplate}>
+                            <Download className="mr-1.5 size-4" />
+                            Download Template
+                          </Button>
+                          <div className="flex flex-col gap-2">
+                            <Label>CSV File</Label>
+                            <Input
+                              ref={fileInputRef}
+                              type="file"
+                              accept=".csv"
+                              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
+                            />
+                          </div>
+                          {uploadResult && (
+                            <div className={`rounded-lg border p-3 text-sm ${uploadResult.created > 0 ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200" : "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"}`}>
+                              {uploadResult.created > 0 && <p>{uploadResult.created} unit(s) created successfully.</p>}
+                              {uploadResult.error && <p className="font-medium">{uploadResult.error}</p>}
+                              {uploadResult.rows && uploadResult.rows.length > 0 && (
+                                <ul className="mt-1 list-inside list-disc space-y-0.5">
+                                  {uploadResult.rows.map((r, i) => (
+                                    <li key={i}>Row {r.row}: {r.message}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setCsvDialogOpen(false)}>
+                            {uploadResult && uploadResult.created > 0 ? "Done" : "Cancel"}
+                          </Button>
+                          <Button onClick={handleUploadCSV} disabled={!csvFile || uploading}>
+                            {uploading ? "Uploading..." : "Upload"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={addUnitOpen} onOpenChange={setAddUnitOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="mr-1.5 size-4" />
+                          Add Unit
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Add Unit</DialogTitle>
+                          <DialogDescription>
+                            Add a new unit to <strong>{project.name}</strong>.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-4 py-2">
+                          <div className="flex flex-col gap-2">
+                            <Label htmlFor="unit-number">Unit Number</Label>
+                            <Input
+                              id="unit-number"
+                              value={newUnitNumber}
+                              onChange={(e) => setNewUnitNumber(e.target.value)}
+                              placeholder="e.g. 101"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Label htmlFor="unit-address">Address</Label>
+                            <Input
+                              id="unit-address"
+                              value={newAddress}
+                              onChange={(e) => setNewAddress(e.target.value)}
+                              placeholder="e.g. 100 River Road, Apt 101"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setAddUnitOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleCreateUnit}
+                            disabled={!newUnitNumber.trim() || !newAddress.trim() || creatingUnit}
+                          >
+                            {creatingUnit ? "Creating..." : "Create Unit"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -345,7 +652,7 @@ export function ProjectDetailPage() {
                     <TableBody>
                       {projectUnits.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                          <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                             No units in this project.
                           </TableCell>
                         </TableRow>

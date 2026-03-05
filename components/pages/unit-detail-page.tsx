@@ -164,9 +164,18 @@ export function UnitDetailPage() {
             <BreadcrumbItem>
               <BreadcrumbLink
                 className="cursor-pointer text-muted-foreground hover:text-foreground"
-                onClick={() => navigateTo({ type: "units" })}
+                onClick={() => navigateTo({ type: "projects" })}
               >
-                Units
+                Projects
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                className="cursor-pointer text-muted-foreground hover:text-foreground"
+                onClick={() => navigateTo({ type: "project-detail", projectId: unit.projectId })}
+              >
+                {project.name}
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />

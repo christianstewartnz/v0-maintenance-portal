@@ -37,11 +37,12 @@ model Unit {
 enum RequestStatus {
   needs_review
   processed
+  error
 }
 
 model MaintenanceRequest {
   id             String        @id
-  projectId      String
+  projectId      String?
   fromName       String
   fromEmail      String
   subject        String
@@ -50,12 +51,26 @@ model MaintenanceRequest {
   status         RequestStatus @default(needs_review)
   detectedUnitId String?
 
-  project      Project @relation(fields: [projectId], references: [id])
-  detectedUnit Unit?   @relation(fields: [detectedUnitId], references: [id])
+  project      Project? @relation(fields: [projectId], references: [id])
+  detectedUnit Unit?    @relation(fields: [detectedUnitId], references: [id])
   items        Item[]
+  attachments  MaintenanceAttachment[]
 
   @@index([projectId])
   @@index([detectedUnitId])
+}
+
+model MaintenanceAttachment {
+  id          String   @id @default(uuid())
+  requestId   String
+  fileName    String
+  mimeType    String
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  request MaintenanceRequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId])
 }
 
 enum Trade {

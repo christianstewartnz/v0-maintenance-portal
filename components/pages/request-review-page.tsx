@@ -12,6 +12,9 @@ import {
   Save,
   Sparkles,
   Loader2,
+  Building2,
+  Download,
+  FileText,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -82,9 +85,13 @@ export function RequestReviewPage() {
   const allUnits = units
 
   const selectedUnit = allUnits.find((u) => u.id === selectedUnitId)
-  const selectedProject = selectedUnit
+  const inferredProject = selectedUnit
     ? projects.find((p) => p.id === selectedUnit.projectId)
     : null
+  const detectedProject = requestData?.projectId
+    ? projects.find((p) => p.id === requestData.projectId)
+    : null
+  const displayProject = inferredProject ?? detectedProject
 
   const canConfirm = useMemo(() => {
     if (!selectedUnitId) return false
@@ -232,13 +239,53 @@ export function RequestReviewPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Attachments</CardTitle>
+                <CardTitle className="text-sm font-semibold">
+                  Attachments
+                  {requestData.attachments && requestData.attachments.length > 0 && (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      ({requestData.attachments.length})
+                    </span>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-4 text-muted-foreground">
-                  <Paperclip className="size-4" />
-                  <span className="text-sm">No attachments</span>
-                </div>
+                {requestData.attachments && requestData.attachments.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {requestData.attachments.map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center justify-between rounded-lg border border-border p-3"
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileText className="size-4 shrink-0 text-muted-foreground" />
+                          <div className="overflow-hidden">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {att.fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {att.mimeType}
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={`/api/maintenance/attachments/${att.id}`}
+                          download={att.fileName}
+                          className="ml-2 shrink-0"
+                        >
+                          <Button variant="ghost" size="icon" className="size-7">
+                            <Download className="size-3.5" />
+                            <span className="sr-only">Download</span>
+                          </Button>
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-4 text-muted-foreground">
+                    <Paperclip className="size-4" />
+                    <span className="text-sm">No attachments</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -249,10 +296,43 @@ export function RequestReviewPage() {
               <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
                 <p className="text-sm text-warning-foreground">
-                  Please confirm the correct unit before creating items.
+                  Please confirm the correct project and unit before creating items.
                 </p>
               </div>
             )}
+
+            {/* Detected Project */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">
+                  Project
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className={cn(
+                  "flex items-center gap-2 rounded-lg border p-3",
+                  displayProject
+                    ? "border-border bg-muted/50"
+                    : "border-dashed border-border"
+                )}>
+                  <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                  {displayProject ? (
+                    <span className="text-sm font-medium text-foreground">
+                      {displayProject.name}
+                    </span>
+                  ) : (
+                    <span className="text-sm italic text-muted-foreground">
+                      Not detected yet — click AI Draft to auto-detect
+                    </span>
+                  )}
+                </div>
+                {displayProject && inferredProject && inferredProject.id !== detectedProject?.id && detectedProject && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Project inferred from selected unit (originally detected: {detectedProject.name})
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Unit Selection */}
             <Card>
@@ -276,14 +356,14 @@ export function RequestReviewPage() {
                       )}
                     >
                       {selectedUnit
-                        ? `Unit ${selectedUnit.unitNumber} - ${selectedUnit.address}${selectedProject ? ` (${selectedProject.name})` : ""}`
+                        ? `Unit ${selectedUnit.unitNumber} - ${selectedUnit.address}${inferredProject ? ` (${inferredProject.name})` : ""}`
                         : "Select a unit..."}
                       <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[440px] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Search by unit number or address..." />
+                      <CommandInput placeholder="Search by unit number, address, or project..." />
                       <CommandList>
                         <CommandEmpty>No units found.</CommandEmpty>
                         <CommandGroup>

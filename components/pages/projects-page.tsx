@@ -56,10 +56,11 @@ export function ProjectsPage() {
     if (!newName.trim()) return
     setCreating(true)
     try {
-      await createProject({ name: newName, description: newDescription })
+      const created = await createProject({ name: newName, description: newDescription })
       setDialogOpen(false)
       setNewName("")
       setNewDescription("")
+      navigateTo({ type: "project-detail", projectId: created.id })
     } catch (err) {
       console.error("Failed to create project:", err)
     } finally {

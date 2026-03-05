@@ -99,7 +99,10 @@ export async function POST(
   await prisma.$transaction(async (tx) => {
     await tx.maintenanceRequest.update({
       where: { id },
-      data: { status: "processed" },
+      data: {
+        status: "processed",
+        projectId: unit.projectId,
+      },
     });
 
     await tx.item.createMany({ data: prismaItems });

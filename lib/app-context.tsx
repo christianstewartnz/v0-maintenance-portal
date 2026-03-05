@@ -1,20 +1,19 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
-import type { Project, Unit, MaintenanceRequest, Item, DraftItem, AIDraftResponse, ItemStatus } from "./types"
+import type { Project, Unit, MaintenanceRequest, Item, DraftItem, AIDraftResponse, ItemStatus, ImportEmailResponse } from "./types"
 
 export type Page =
   | { type: "dashboard" }
   | { type: "projects" }
   | { type: "project-detail"; projectId: string }
-  | { type: "units" }
   | { type: "unit-detail"; unitId: string }
   | { type: "requests" }
   | { type: "request-review"; requestId: string }
   | { type: "items"; filterUnitId?: string }
 
 export interface CreateRequestPayload {
-  projectId: string
+  projectId?: string
   subject: string
   bodyRaw: string
   fromName?: string
@@ -51,12 +50,13 @@ interface AppContextValue {
   setSelectedProjectId: (id: string) => void
   fetchProjects: (includeArchived?: boolean) => Promise<Project[]>
   fetchUnits: (includeArchived?: boolean) => Promise<Unit[]>
-  fetchRequests: (projectId: string, status?: string) => Promise<void>
+  fetchRequests: (projectId?: string | null, status?: string) => Promise<void>
   fetchItems: (projectId: string, filters?: ItemFilters) => Promise<void>
-  createProject: (payload: CreateProjectPayload) => Promise<void>
+  createProject: (payload: CreateProjectPayload) => Promise<Project>
   createUnit: (payload: CreateUnitPayload) => Promise<void>
-  uploadUnitsCSV: (file: File) => Promise<{ created: number; errors?: string[] }>
+  uploadUnitsCSV: (file: File, projectId?: string) => Promise<{ created: number; error?: string; rows?: { row: number; message: string }[] }>
   createRequest: (payload: CreateRequestPayload) => Promise<void>
+  importEmails: (files: File[]) => Promise<ImportEmailResponse>
   processRequest: (requestId: string, unitId: string, drafts: DraftItem[]) => void
   draftRequest: (requestId: string) => Promise<AIDraftResponse>
   archiveProject: (projectId: string, archive: boolean) => Promise<void>
@@ -103,9 +103,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const fetchRequests = useCallback(async (projectId: string, status?: string) => {
+  const fetchRequests = useCallback(async (projectId?: string | null, status?: string) => {
     try {
-      const params = new URLSearchParams({ projectId })
+      const params = new URLSearchParams()
+      if (projectId) {
+        params.set("projectId", projectId)
+      }
       if (status && status !== "all") params.set("status", status)
       const res = await fetch(`/api/requests?${params}`)
       const data = await res.json()
@@ -133,15 +136,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [projectsData] = await Promise.all([fetchProjects(), fetchUnits()])
+        const [projectsData] = await Promise.all([fetchProjects(), fetchUnits(), fetchRequests()])
 
         if (projectsData.length > 0) {
           const firstId = projectsData[0].id
           setSelectedProjectId(firstId)
-          await Promise.all([
-            fetchRequests(firstId),
-            fetchItems(firstId),
-          ])
+          await fetchItems(firstId)
         }
       } catch (err) {
         console.error("Failed to fetch data:", err)
@@ -157,7 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const createProject = useCallback(
-    async (payload: CreateProjectPayload) => {
+    async (payload: CreateProjectPayload): Promise<Project> => {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -167,7 +167,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const err = await res.json()
         throw new Error(err.error || "Failed to create project")
       }
+      const created: Project = await res.json()
       await fetchProjects()
+      return created
     },
     [fetchProjects],
   )
@@ -189,16 +191,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   )
 
   const uploadUnitsCSV = useCallback(
-    async (file: File): Promise<{ created: number; errors?: string[] }> => {
+    async (file: File, projectId?: string): Promise<{ created: number; error?: string; rows?: { row: number; message: string }[] }> => {
       const formData = new FormData()
       formData.append("file", file)
-      const res = await fetch("/api/units/upload", {
+      const params = new URLSearchParams()
+      if (projectId) params.set("projectId", projectId)
+      const res = await fetch(`/api/units/upload?${params}`, {
         method: "POST",
         body: formData,
       })
       const data = await res.json()
       if (!res.ok) {
-        throw new Error(data.error || "Failed to upload CSV")
+        return { created: 0, error: data.error, rows: data.rows }
       }
       await fetchUnits()
       return data
@@ -217,9 +221,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const err = await res.json()
         throw new Error(err.error || "Failed to create request")
       }
-      await fetchRequests(payload.projectId)
+      await fetchRequests(payload.projectId ?? null)
     },
     [fetchRequests],
+  )
+
+  const importEmails = useCallback(
+    async (files: File[]): Promise<ImportEmailResponse> => {
+      const formData = new FormData()
+      for (const file of files) {
+        formData.append("files", file)
+      }
+      const res = await fetch("/api/maintenance/import-email", {
+        method: "POST",
+        body: formData,
+      })
+      const data: ImportEmailResponse = await res.json()
+      if (!res.ok) {
+        throw new Error("Failed to import emails")
+      }
+      return data
+    },
+    [],
   )
 
   const draftRequest = useCallback(
@@ -233,13 +256,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const data: AIDraftResponse = await res.json()
 
-      if (data.detectedUnitId) {
-        setRequests((prev) =>
-          prev.map((r) =>
-            r.id === requestId ? { ...r, detectedUnitId: data.detectedUnitId! } : r
-          )
-        )
-      }
+      setRequests((prev) =>
+        prev.map((r) => {
+          if (r.id !== requestId) return r
+          const updates: Partial<MaintenanceRequest> = {}
+          if (data.detectedUnitId) updates.detectedUnitId = data.detectedUnitId
+          if (data.detectedProjectId) updates.projectId = data.detectedProjectId
+          return { ...r, ...updates }
+        })
+      )
 
       return data
     },
@@ -351,6 +376,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createUnit,
         uploadUnitsCSV,
         createRequest,
+        importEmails,
         draftRequest,
         processRequest,
         archiveProject,
