@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Building2, ClipboardList, MessageSquareText, ArrowRight, Clock, Archive, ArchiveRestore, Plus } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Building2, MapPin, Home, ClipboardList, MessageSquareText, ArrowRight, Archive, ArchiveRestore, Plus } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -30,13 +30,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useApp } from "@/lib/app-context"
-import { format } from "date-fns"
 
 export function ProjectsPage() {
   const { items, requests, navigateTo, projects, units, archiveProject, fetchProjects, createProject } = useApp()
   const [showArchived, setShowArchived] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newName, setNewName] = useState("")
+  const [newAddress, setNewAddress] = useState("")
   const [newDescription, setNewDescription] = useState("")
   const [creating, setCreating] = useState(false)
 
@@ -56,9 +56,10 @@ export function ProjectsPage() {
     if (!newName.trim()) return
     setCreating(true)
     try {
-      const created = await createProject({ name: newName, description: newDescription })
+      const created = await createProject({ name: newName, address: newAddress, description: newDescription })
       setDialogOpen(false)
       setNewName("")
+      setNewAddress("")
       setNewDescription("")
       navigateTo({ type: "project-detail", projectId: created.id })
     } catch (err) {
@@ -108,6 +109,15 @@ export function ProjectsPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
+                  <Label htmlFor="project-address">Address</Label>
+                  <Input
+                    id="project-address"
+                    value={newAddress}
+                    onChange={(e) => setNewAddress(e.target.value)}
+                    placeholder="e.g. 123 Main St, Suite 100"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="project-description">Description</Label>
                   <Textarea
                     id="project-description"
@@ -131,69 +141,58 @@ export function ProjectsPage() {
         </div>
       </div>
       <div className="flex-1 overflow-auto p-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-3">
           {projects.map((project) => {
             const isArchived = !!project.archivedAt
             const unitCount = units.filter((u) => u.projectId === project.id).length
+            const requestCount = requests.filter((r) => r.projectId === project.id).length
             const openItems = items.filter(
               (i) => i.projectId === project.id && !["Completed", "Closed"].includes(i.status)
             ).length
-            const reviewCount = requests.filter(
-              (r) => r.projectId === project.id && r.status === "needs_review"
-            ).length
-
-            const projectItems = items.filter((i) => i.projectId === project.id)
-            const latestUpdate = projectItems.length > 0
-              ? projectItems.reduce((latest, i) =>
-                  new Date(i.updatedAt) > new Date(latest.updatedAt) ? i : latest
-                ).updatedAt
-              : project.createdAt
 
             return (
-              <Card key={project.id} className={`group transition-shadow hover:shadow-md ${isArchived ? "opacity-60" : ""}`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
-                      <Building2 className="size-4 text-primary" />
-                    </div>
-                    <div className="flex-1">
+              <Card key={project.id} className={`transition-shadow hover:shadow-md ${isArchived ? "opacity-60" : ""}`}>
+                <CardContent className="flex items-center gap-6 py-4">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Building2 className="size-5 text-primary" />
+                  </div>
+
+                  <div className="flex min-w-0 flex-1 items-center gap-6">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-semibold">{project.name}</CardTitle>
+                        <h3 className="truncate text-sm font-semibold text-foreground">{project.name}</h3>
                         {isArchived && (
-                          <Badge variant="secondary" className="text-[10px]">Archived</Badge>
+                          <Badge variant="secondary" className="shrink-0 text-[10px]">Archived</Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {unitCount} Units
-                      </p>
+                      {project.address && (
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                          <MapPin className="size-3 shrink-0" />
+                          {project.address}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="hidden items-center gap-5 text-xs text-muted-foreground sm:flex">
+                      <span className="flex items-center gap-1.5 whitespace-nowrap">
+                        <Home className="size-3.5" />
+                        {unitCount} {unitCount === 1 ? "Unit" : "Units"}
+                      </span>
+                      <span className="flex items-center gap-1.5 whitespace-nowrap">
+                        <MessageSquareText className="size-3.5" />
+                        {requestCount} {requestCount === 1 ? "Request" : "Requests"}
+                      </span>
+                      <span className="flex items-center gap-1.5 whitespace-nowrap">
+                        <ClipboardList className="size-3.5" />
+                        {openItems} Open
+                      </span>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  {project.description && (
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {project.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <ClipboardList className="size-3.5" />
-                      {openItems} Open
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquareText className="size-3.5" />
-                      {reviewCount} Review
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="size-3.5" />
-                      {format(new Date(latestUpdate), "MMM d")}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
+
+                  <div className="flex shrink-0 items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
                       onClick={() => navigateTo({ type: "project-detail", projectId: project.id })}
                     >
                       Open Project

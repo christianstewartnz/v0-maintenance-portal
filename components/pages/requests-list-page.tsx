@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { Eye, MessageSquareText, Plus, Upload, Paperclip, Search } from "lucide-react"
+import { Eye, MessageSquareText, Plus, Upload, Paperclip, Archive, ArchiveRestore } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -33,11 +32,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useApp } from "@/lib/app-context"
 import { EmailDropZone } from "@/components/email-drop-zone"
-import type { RequestStatus } from "@/lib/types"
 import { format } from "date-fns"
+import type { RequestStatus } from "@/lib/types"
 
 export function RequestsListPage() {
   const {
@@ -48,12 +47,11 @@ export function RequestsListPage() {
     fetchRequests,
     createRequest,
     importEmails,
+    archiveRequest,
   } = useApp()
 
+  const [projectFilter, setProjectFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<"all" | RequestStatus>("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all")
-  const [attachmentsOnly, setAttachmentsOnly] = useState(false)
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [fromName, setFromName] = useState("")
@@ -62,53 +60,22 @@ export function RequestsListPage() {
   const [body, setBody] = useState("")
   const [creating, setCreating] = useState(false)
 
-  const reloadRequests = useCallback(
-    (status: string) => {
-      fetchRequests(null, status === "all" ? undefined : status)
-    },
-    [fetchRequests],
-  )
+  const reloadRequests = useCallback(() => {
+    fetchRequests(
+      projectFilter === "all" ? null : projectFilter,
+      statusFilter === "all" ? undefined : statusFilter,
+    )
+  }, [fetchRequests, projectFilter, statusFilter])
 
   useEffect(() => {
-    reloadRequests(statusFilter)
-  }, [statusFilter, reloadRequests])
+    reloadRequests()
+  }, [reloadRequests])
 
-  function handleStatusChange(value: string) {
-    setStatusFilter(value as "all" | RequestStatus)
-  }
-
-  const filteredRequests = useMemo(() => {
-    let result = requests
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(
-        (r) =>
-          r.subject.toLowerCase().includes(q) ||
-          r.fromName.toLowerCase().includes(q) ||
-          r.fromEmail.toLowerCase().includes(q),
-      )
-    }
-
-    if (assignmentFilter === "assigned") {
-      result = result.filter((r) => r.projectId != null)
-    } else if (assignmentFilter === "unassigned") {
-      result = result.filter((r) => r.projectId == null)
-    }
-
-    if (attachmentsOnly) {
-      result = result.filter((r) => r.attachments && r.attachments.length > 0)
-    }
-
-    result = [...result].sort((a, b) => {
-      const aUnassigned = a.projectId == null ? 0 : 1
-      const bUnassigned = b.projectId == null ? 0 : 1
-      if (aUnassigned !== bUnassigned) return aUnassigned - bUnassigned
-      return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
-    })
-
-    return result
-  }, [requests, searchQuery, assignmentFilter, attachmentsOnly])
+  const sortedRequests = useMemo(() => {
+    return [...requests].sort((a, b) =>
+      new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+    )
+  }, [requests])
 
   async function handleCreateRequest() {
     if (!subject.trim() || !body.trim()) return
@@ -125,7 +92,7 @@ export function RequestsListPage() {
       setFromEmail("")
       setSubject("")
       setBody("")
-      reloadRequests(statusFilter)
+      reloadRequests()
     } catch (err) {
       console.error("Failed to create request:", err)
     } finally {
@@ -161,8 +128,8 @@ export function RequestsListPage() {
                 <EmailDropZone
                   onImport={importEmails}
                   onComplete={() => {
-                    setStatusFilter("all")
-                    reloadRequests("all")
+                    setProjectFilter("all")
+                    reloadRequests()
                   }}
                 />
               </div>
@@ -242,52 +209,35 @@ export function RequestsListPage() {
       <div className="flex-1 overflow-auto p-6">
         <Card>
           <CardHeader>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">
-                  Requests ({filteredRequests.length})
-                </CardTitle>
-                <Tabs value={statusFilter} onValueChange={handleStatusChange}>
-                  <TabsList>
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="needs_review">Needs Review</TabsTrigger>
-                    <TabsTrigger value="processed">Processed</TabsTrigger>
-                    <TabsTrigger value="error">Error</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search subject, sender..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-64 pl-8 text-xs"
-                  />
-                </div>
-                <Select value={assignmentFilter} onValueChange={(v) => setAssignmentFilter(v as "all" | "assigned" | "unassigned")}>
-                  <SelectTrigger className="w-40 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Requests</SelectItem>
-                    <SelectItem value="assigned">Assigned to Project</SelectItem>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                  </SelectContent>
-                </Select>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                  <Checkbox
-                    checked={attachmentsOnly}
-                    onCheckedChange={(checked) => setAttachmentsOnly(checked === true)}
-                  />
-                  Has attachments
-                </label>
-              </div>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">
+                Requests ({sortedRequests.length})
+              </CardTitle>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-48 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Requests</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | RequestStatus)}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="needs_review">Needs Review</TabsTrigger>
+                <TabsTrigger value="processed">Processed</TabsTrigger>
+                <TabsTrigger value="archived">Archived</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardHeader>
           <CardContent>
-            {filteredRequests.length === 0 ? (
+            {sortedRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <MessageSquareText className="mb-3 size-10 text-muted-foreground/40" />
                 <p className="text-sm font-medium text-muted-foreground">No requests found</p>
@@ -303,11 +253,11 @@ export function RequestsListPage() {
                       <TableHead className="text-xs font-medium">Project</TableHead>
                       <TableHead className="text-xs font-medium">Detected Unit</TableHead>
                       <TableHead className="text-xs font-medium">Status</TableHead>
-                      <TableHead className="w-20 text-right text-xs font-medium">Actions</TableHead>
+                      <TableHead className="text-right text-xs font-medium">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRequests.map((req) => {
+                    {sortedRequests.map((req) => {
                       const detectedUnit = req.detectedUnitId
                         ? units.find((u) => u.id === req.detectedUnitId)
                         : null
@@ -349,28 +299,62 @@ export function RequestsListPage() {
                                   ? "border-warning/30 bg-warning/10 text-warning-foreground"
                                   : req.status === "error"
                                     ? "border-destructive/30 bg-destructive/10 text-destructive"
-                                    : ""
+                                    : req.status === "archived"
+                                      ? "border-muted-foreground/30 bg-muted text-muted-foreground"
+                                      : ""
                               }
                             >
                               {req.status === "needs_review"
                                 ? "Needs Review"
                                 : req.status === "error"
                                   ? "Error"
-                                  : "Processed"}
+                                  : req.status === "archived"
+                                    ? "Archived"
+                                    : "Processed"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() =>
-                                navigateTo({ type: "request-review", requestId: req.id })
-                              }
-                            >
-                              <Eye className="mr-1 size-3.5" />
-                              Review
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() =>
+                                  navigateTo({ type: "request-review", requestId: req.id })
+                                }
+                              >
+                                <Eye className="mr-1 size-3.5" />
+                                Review
+                              </Button>
+                              {(req.status === "needs_review" || req.status === "error") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground"
+                                  onClick={async () => {
+                                    await archiveRequest(req.id, true)
+                                    reloadRequests()
+                                  }}
+                                >
+                                  <Archive className="mr-1 size-3.5" />
+                                  Archive
+                                </Button>
+                              )}
+                              {req.status === "archived" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground"
+                                  onClick={async () => {
+                                    await archiveRequest(req.id, false)
+                                    reloadRequests()
+                                  }}
+                                >
+                                  <ArchiveRestore className="mr-1 size-3.5" />
+                                  Unarchive
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       )

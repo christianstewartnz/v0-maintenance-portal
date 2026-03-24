@@ -15,6 +15,8 @@ import {
   Building2,
   Download,
   FileText,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -60,7 +62,7 @@ const TRADES: Trade[] = [
 const PRIORITIES: Priority[] = ["Low", "Normal", "Urgent"]
 
 export function RequestReviewPage() {
-  const { currentPage, requests, navigateTo, processRequest, draftRequest, projects, units } = useApp()
+  const { currentPage, requests, navigateTo, processRequest, draftRequest, archiveRequest, projects, units } = useApp()
 
   const requestId = currentPage.type === "request-review" ? currentPage.requestId : null
   const requestData = requestId ? requests.find((r) => r.id === requestId) ?? null : null
@@ -196,10 +198,20 @@ export function RequestReviewPage() {
                     className={
                       requestData.status === "needs_review"
                         ? "border-warning/30 bg-warning/10 text-warning-foreground"
-                        : "border-success/30 bg-success/10 text-success"
+                        : requestData.status === "archived"
+                          ? "border-muted-foreground/30 bg-muted text-muted-foreground"
+                          : requestData.status === "error"
+                            ? "border-destructive/30 bg-destructive/10 text-destructive"
+                            : "border-success/30 bg-success/10 text-success"
                     }
                   >
-                    {requestData.status === "needs_review" ? "Needs Review" : "Processed"}
+                    {requestData.status === "needs_review"
+                      ? "Needs Review"
+                      : requestData.status === "archived"
+                        ? "Archived"
+                        : requestData.status === "error"
+                          ? "Error"
+                          : "Processed"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -419,7 +431,7 @@ export function RequestReviewPage() {
                       variant="outline"
                       size="sm"
                       onClick={handleAIDraft}
-                      disabled={drafting || requestData.status === "processed"}
+                      disabled={drafting || requestData.status === "processed" || requestData.status === "archived"}
                     >
                       {drafting ? (
                         <Loader2 className="mr-1 size-3.5 animate-spin" />
@@ -519,14 +531,46 @@ export function RequestReviewPage() {
             </Card>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => navigateTo({ type: "requests" })}>
-                <Save className="mr-1.5 size-4" />
-                Save Draft
-              </Button>
-              <Button className="flex-1" onClick={handleConfirm} disabled={!canConfirm}>
-                <Check className="mr-1.5 size-4" />
-                Confirm & Create Items
-              </Button>
+              {requestData.status === "archived" ? (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={async () => {
+                    await archiveRequest(requestData.id, false)
+                  }}
+                >
+                  <ArchiveRestore className="mr-1.5 size-4" />
+                  Unarchive
+                </Button>
+              ) : (
+                <>
+                  {(requestData.status === "needs_review" || requestData.status === "error") && (
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-muted-foreground"
+                      onClick={async () => {
+                        await archiveRequest(requestData.id, true)
+                        navigateTo({ type: "requests" })
+                      }}
+                    >
+                      <Archive className="mr-1.5 size-4" />
+                      Archive
+                    </Button>
+                  )}
+                  <Button variant="outline" className="flex-1" onClick={() => navigateTo({ type: "requests" })}>
+                    <Save className="mr-1.5 size-4" />
+                    Save Draft
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={handleConfirm}
+                    disabled={!canConfirm || requestData.status === "processed"}
+                  >
+                    <Check className="mr-1.5 size-4" />
+                    Confirm & Create Items
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

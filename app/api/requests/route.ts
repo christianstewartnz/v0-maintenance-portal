@@ -17,8 +17,10 @@ export async function GET(req: NextRequest) {
     where.projectId = projectId;
   }
 
-  if (status === "needs_review" || status === "processed" || status === "error") {
+  if (status === "needs_review" || status === "processed" || status === "error" || status === "archived") {
     where.status = status;
+  } else {
+    where.status = { not: "archived" };
   }
 
   if (search) {
@@ -29,12 +31,20 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const requests = await prisma.maintenanceRequest.findMany({
-    where,
-    orderBy: { receivedAt: "desc" },
-    include: { attachments: true },
-  });
-  return NextResponse.json(requests);
+  try {
+    const requests = await prisma.maintenanceRequest.findMany({
+      where,
+      orderBy: { receivedAt: "desc" },
+      include: { attachments: true },
+    });
+    return NextResponse.json(requests);
+  } catch (error) {
+    console.error("Failed to fetch requests:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch requests" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

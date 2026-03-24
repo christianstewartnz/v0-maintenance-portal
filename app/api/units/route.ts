@@ -2,13 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
+  try {
+    const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
 
-  const units = await prisma.unit.findMany({
-    where: includeArchived ? {} : { archivedAt: null },
-    orderBy: { unitNumber: "asc" },
-  });
-  return NextResponse.json(units);
+    const units = await prisma.unit.findMany({
+      where: includeArchived ? {} : { archivedAt: null },
+      orderBy: { unitNumber: "asc" },
+    });
+    return NextResponse.json(units);
+  } catch (error) {
+    console.error("Failed to fetch units:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch units" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

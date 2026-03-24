@@ -1,6 +1,7 @@
 export interface Project {
   id: string
   name: string
+  address: string
   description: string
   createdAt: string
   archivedAt: string | null
@@ -14,7 +15,7 @@ export interface Unit {
   archivedAt: string | null
 }
 
-export type RequestStatus = "needs_review" | "processed" | "error"
+export type RequestStatus = "needs_review" | "processed" | "error" | "archived"
 
 export interface MaintenanceAttachment {
   id: string

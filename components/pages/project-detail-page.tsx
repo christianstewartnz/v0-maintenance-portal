@@ -216,7 +216,7 @@ export function ProjectDetailPage() {
 
   const projectRequests = requests.filter((r) => r.projectId === projectId)
   const filteredProjectRequests = requestStatusFilter === "all"
-    ? projectRequests
+    ? projectRequests.filter((r) => r.status !== "archived")
     : projectRequests.filter((r) => r.status === requestStatusFilter)
 
   const kpis = [
@@ -416,6 +416,7 @@ export function ProjectDetailPage() {
                       <TabsTrigger value="all">All</TabsTrigger>
                       <TabsTrigger value="needs_review">Needs Review</TabsTrigger>
                       <TabsTrigger value="processed">Processed</TabsTrigger>
+                      <TabsTrigger value="archived">Archived</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
@@ -474,14 +475,18 @@ export function ProjectDetailPage() {
                                       ? "border-warning/30 bg-warning/10 text-warning-foreground"
                                       : req.status === "error"
                                         ? "border-destructive/30 bg-destructive/10 text-destructive"
-                                        : ""
+                                        : req.status === "archived"
+                                          ? "border-muted-foreground/30 bg-muted text-muted-foreground"
+                                          : ""
                                   }
                                 >
                                   {req.status === "needs_review"
                                     ? "Needs Review"
                                     : req.status === "error"
                                       ? "Error"
-                                      : "Processed"}
+                                      : req.status === "archived"
+                                        ? "Archived"
+                                        : "Processed"}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">

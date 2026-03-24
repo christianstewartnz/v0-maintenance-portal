@@ -36,10 +36,18 @@ export async function GET(req: NextRequest) {
     where.requestId = requestId;
   }
 
-  const items = await prisma.item.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: { project: true, unit: true, request: true },
-  });
-  return NextResponse.json(normalizeItems(items));
+  try {
+    const items = await prisma.item.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: { project: true, unit: true, request: true },
+    });
+    return NextResponse.json(normalizeItems(items));
+  } catch (error) {
+    console.error("Failed to fetch items:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch items" },
+      { status: 500 },
+    );
+  }
 }

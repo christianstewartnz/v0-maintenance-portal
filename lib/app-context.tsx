@@ -22,6 +22,7 @@ export interface CreateRequestPayload {
 
 export interface CreateProjectPayload {
   name: string
+  address?: string
   description?: string
 }
 
@@ -59,6 +60,7 @@ interface AppContextValue {
   importEmails: (files: File[]) => Promise<ImportEmailResponse>
   processRequest: (requestId: string, unitId: string, drafts: DraftItem[]) => void
   draftRequest: (requestId: string) => Promise<AIDraftResponse>
+  archiveRequest: (requestId: string, archive: boolean) => Promise<void>
   archiveProject: (projectId: string, archive: boolean) => Promise<void>
   archiveUnit: (unitId: string, archive: boolean) => Promise<void>
   updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
@@ -80,6 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const params = new URLSearchParams()
       if (includeArchived) params.set("includeArchived", "true")
       const res = await fetch(`/api/projects?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: Project[] = await res.json()
       setProjects(data)
       return data
@@ -94,6 +97,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const params = new URLSearchParams()
       if (includeArchived) params.set("includeArchived", "true")
       const res = await fetch(`/api/units?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: Unit[] = await res.json()
       setUnits(data)
       return data
@@ -111,6 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (status && status !== "all") params.set("status", status)
       const res = await fetch(`/api/requests?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setRequests(data)
     } catch (err) {
@@ -126,6 +131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (filters?.unitId && filters.unitId !== "all") params.set("unitId", filters.unitId)
       if (filters?.requestId && filters.requestId !== "all") params.set("requestId", filters.requestId)
       const res = await fetch(`/api/items?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setItems(data)
     } catch (err) {
@@ -299,6 +305,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [fetchItems, selectedProjectId]
   )
 
+  const archiveRequest = useCallback(
+    async (requestId: string, archive: boolean) => {
+      const res = await fetch(`/api/requests/${requestId}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to archive request")
+      }
+      const updated: MaintenanceRequest = await res.json()
+      setRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? updated : r))
+      )
+    },
+    []
+  )
+
   const archiveProject = useCallback(
     async (projectId: string, archive: boolean) => {
       const res = await fetch(`/api/projects/${projectId}/archive`, {
@@ -379,6 +404,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         importEmails,
         draftRequest,
         processRequest,
+        archiveRequest,
         archiveProject,
         archiveUnit,
         updateItemStatus,
