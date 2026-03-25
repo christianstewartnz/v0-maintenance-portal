@@ -31,6 +31,7 @@ export interface MaintenanceRequest {
   projectId: string | null
   fromName: string
   fromEmail: string
+  fromPhone: string | null
   subject: string
   bodyRaw: string
   receivedAt: string
@@ -83,7 +84,10 @@ export interface Item {
   updatedAt: string
   project?: Pick<Project, "id" | "name">
   unit?: Pick<Unit, "id" | "unitNumber" | "address">
-  request?: Pick<MaintenanceRequest, "id" | "subject">
+  request?: Pick<
+    MaintenanceRequest,
+    "id" | "subject" | "fromName" | "fromEmail" | "fromPhone"
+  >
   workOrderItems?: WorkOrderItem[]
   activities?: ItemActivity[]
 }
@@ -121,7 +125,9 @@ export interface Contractor {
   email: string
   phone: string | null
   trade: string | null
+  isActive: boolean
   createdAt: string
+  updatedAt: string
 }
 
 export interface WorkOrder {

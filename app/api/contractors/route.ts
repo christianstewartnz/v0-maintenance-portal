@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const activeOnly = req.nextUrl.searchParams.get("activeOnly") !== "false";
+
     const contractors = await prisma.contractor.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
       orderBy: { name: "asc" },
     });
     return NextResponse.json(contractors);

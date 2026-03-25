@@ -50,19 +50,46 @@ export default function ContractorAccessPage({
 
   const itemsByUnit = useMemo(() => {
     if (!workOrder?.items) return []
-    const grouped: Record<string, { unitNumber: string; items: WorkOrderItem[] }> = {}
+    const grouped: Record<
+      string,
+      { unitNumber: string; unitAddress: string; items: WorkOrderItem[] }
+    > = {}
     for (const woItem of workOrder.items) {
       const unit = woItem.item?.unit
       const unitKey = unit?.id ?? "unknown"
       const unitNumber = unit?.unitNumber ?? "Unknown"
+      const unitAddress = unit?.address ?? ""
       if (!grouped[unitKey]) {
-        grouped[unitKey] = { unitNumber, items: [] }
+        grouped[unitKey] = { unitNumber, unitAddress, items: [] }
       }
       grouped[unitKey].items.push(woItem)
     }
-    return Object.entries(grouped).sort(([, a], [, b]) =>
-      a.unitNumber.localeCompare(b.unitNumber)
-    )
+
+    return Object.entries(grouped)
+      .map(([unitKey, g]) => {
+        const seen = new Set<string>()
+        const ownerContacts: {
+          fromName: string
+          fromEmail: string
+          fromPhone: string | null
+        }[] = []
+        for (const wo of g.items) {
+          const r = wo.item?.request
+          if (!r) continue
+          const emailKey = r.fromEmail.trim().toLowerCase()
+          const dedupeKey =
+            emailKey || `${r.fromName.trim()}\0${(r.fromPhone ?? "").trim()}`
+          if (seen.has(dedupeKey)) continue
+          seen.add(dedupeKey)
+          ownerContacts.push({
+            fromName: r.fromName,
+            fromEmail: r.fromEmail,
+            fromPhone: r.fromPhone ?? null,
+          })
+        }
+        return [unitKey, { ...g, ownerContacts }] as const
+      })
+      .sort(([, a], [, b]) => a.unitNumber.localeCompare(b.unitNumber))
   }, [workOrder?.items])
 
   const handleMarkComplete = async (workOrderItemId: string) => {
@@ -230,11 +257,30 @@ export default function ContractorAccessPage({
 
         {/* Items by unit */}
         <div className="space-y-6">
-          {itemsByUnit.map(([unitId, { unitNumber, items: woItems }]) => (
+          {itemsByUnit.map(
+            ([unitId, { unitNumber, unitAddress, ownerContacts, items: woItems }]) => (
             <div key={unitId}>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Unit {unitNumber}
-              </h3>
+              <div className="mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Unit {unitNumber}
+                </h3>
+                {ownerContacts.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {ownerContacts.map((c, idx) => (
+                      <div key={idx} className="text-sm">
+                        <p className="font-medium text-foreground">{c.fromName}</p>
+                        <p className="text-muted-foreground">{c.fromEmail}</p>
+                        {c.fromPhone?.trim() ? (
+                          <p className="text-muted-foreground">{c.fromPhone}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {unitAddress.trim() ? (
+                  <p className="mt-2 text-sm text-muted-foreground">{unitAddress}</p>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 {woItems.map((woItem) => {
                   const isCompleted = woItem.isCompletedByContractor
@@ -291,7 +337,8 @@ export default function ContractorAccessPage({
                 })}
               </div>
             </div>
-          ))}
+          )
+          )}
         </div>
 
         {/* Actions */}

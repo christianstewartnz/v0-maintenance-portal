@@ -48,6 +48,7 @@ model MaintenanceRequest {
   projectId      String?
   fromName       String
   fromEmail      String
+  fromPhone      String?
   subject        String
   bodyRaw        String
   receivedAt     DateTime
@@ -140,7 +141,9 @@ model Contractor {
   email       String
   phone       String?
   trade       String?
+  isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   workOrders WorkOrder[]
 }

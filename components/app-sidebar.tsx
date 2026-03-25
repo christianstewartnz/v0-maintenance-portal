@@ -6,6 +6,7 @@ import {
   MessageSquareText,
   ClipboardList,
   FileText,
+  Users,
   Wrench,
 } from "lucide-react"
 import {
@@ -30,6 +31,7 @@ const navItems: { label: string; icon: typeof LayoutDashboard; pageType: Page["t
   { label: "Requests", icon: MessageSquareText, pageType: "requests" },
   { label: "Items", icon: ClipboardList, pageType: "items" },
   { label: "Work Orders", icon: FileText, pageType: "work-orders" },
+  { label: "Contractors", icon: Users, pageType: "contractors" },
 ]
 
 export function AppSidebar() {

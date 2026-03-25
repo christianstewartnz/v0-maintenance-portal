@@ -19,7 +19,18 @@ export async function GET(
             items: {
               include: {
                 item: {
-                  include: { unit: true },
+                  include: {
+                    unit: true,
+                    request: {
+                      select: {
+                        id: true,
+                        subject: true,
+                        fromName: true,
+                        fromEmail: true,
+                        fromPhone: true,
+                      },
+                    },
+                  },
                 },
               },
               orderBy: { createdAt: "asc" },

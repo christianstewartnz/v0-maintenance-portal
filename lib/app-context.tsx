@@ -13,6 +13,7 @@ export type Page =
   | { type: "items"; filterUnitId?: string }
   | { type: "work-orders" }
   | { type: "work-order-detail"; workOrderId: string }
+  | { type: "contractors" }
 
 export interface CreateRequestPayload {
   projectId?: string
@@ -42,6 +43,15 @@ export interface ItemFilters {
 }
 
 export interface CreateContractorPayload {
+  name: string
+  contactName: string
+  email: string
+  phone?: string
+  trade?: string
+}
+
+export interface UpdateContractorPayload {
+  id: string
   name: string
   contactName: string
   email: string
@@ -88,8 +98,10 @@ interface AppContextValue {
   updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
   contractors: Contractor[]
   workOrders: WorkOrder[]
-  fetchContractors: () => Promise<void>
+  fetchContractors: (activeOnly?: boolean) => Promise<void>
   createContractor: (payload: CreateContractorPayload) => Promise<Contractor>
+  updateContractor: (payload: UpdateContractorPayload) => Promise<Contractor>
+  archiveContractor: (id: string, archive: boolean) => Promise<void>
   fetchWorkOrders: (projectId?: string | null, filters?: WorkOrderFilters) => Promise<void>
   createWorkOrder: (payload: CreateWorkOrderPayload) => Promise<WorkOrder>
   issueWorkOrder: (workOrderId: string) => Promise<{ workOrder: WorkOrder; accessUrl: string }>
@@ -171,9 +183,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const fetchContractors = useCallback(async () => {
+  const fetchContractors = useCallback(async (activeOnly?: boolean) => {
     try {
-      const res = await fetch("/api/contractors")
+      const params = new URLSearchParams()
+      if (activeOnly === false) params.set("activeOnly", "false")
+      const res = await fetch(`/api/contractors?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: Contractor[] = await res.json()
       setContractors(data)
@@ -341,11 +355,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setRequests((prev) =>
         prev.map((r) => (r.id === requestId ? data.request : r))
       )
-      if (selectedProjectId) {
-        await fetchItems(selectedProjectId)
+      const projectId = data.request?.projectId
+      if (projectId) {
+        setSelectedProjectId(projectId)
+        await fetchItems(projectId)
       }
     },
-    [fetchItems, selectedProjectId]
+    [fetchItems]
   )
 
   const archiveRequest = useCallback(
@@ -442,6 +458,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [fetchContractors],
   )
 
+  const updateContractor = useCallback(
+    async (payload: UpdateContractorPayload): Promise<Contractor> => {
+      const { id, ...data } = payload
+      const res = await fetch(`/api/contractors/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update contractor")
+      }
+      const updated: Contractor = await res.json()
+      setContractors((prev) =>
+        prev.map((c) => (c.id === id ? updated : c))
+      )
+      return updated
+    },
+    [],
+  )
+
+  const archiveContractor = useCallback(
+    async (id: string, archive: boolean) => {
+      const res = await fetch(`/api/contractors/${id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archive }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to archive contractor")
+      }
+      const updated: Contractor = await res.json()
+      setContractors((prev) =>
+        prev.map((c) => (c.id === id ? updated : c))
+      )
+    },
+    [],
+  )
+
   const fetchWorkOrders = useCallback(async (projectId?: string | null, filters?: WorkOrderFilters) => {
     try {
       const params = new URLSearchParams()
@@ -536,6 +592,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         workOrders,
         fetchContractors,
         createContractor,
+        updateContractor,
+        archiveContractor,
         fetchWorkOrders,
         createWorkOrder,
         issueWorkOrder,

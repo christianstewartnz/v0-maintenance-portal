@@ -13,6 +13,7 @@ import { RequestReviewPage } from "@/components/pages/request-review-page"
 import { ItemsListPage } from "@/components/pages/items-list-page"
 import { WorkOrdersListPage } from "@/components/pages/work-orders-list-page"
 import { WorkOrderDetailPage } from "@/components/pages/work-order-detail-page"
+import { ContractorsListPage } from "@/components/pages/contractors-list-page"
 
 export function AppShell() {
   const { currentPage, loading } = useApp()
@@ -48,6 +49,8 @@ export function AppShell() {
         return <WorkOrdersListPage />
       case "work-order-detail":
         return <WorkOrderDetailPage />
+      case "contractors":
+        return <ContractorsListPage />
       default:
         return <DashboardPage />
     }
