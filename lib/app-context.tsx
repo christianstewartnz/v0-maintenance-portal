@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
-import type { Project, Unit, MaintenanceRequest, Item, DraftItem, AIDraftResponse, ItemStatus, ImportEmailResponse } from "./types"
+import type { Project, Unit, MaintenanceRequest, Item, DraftItem, AIDraftResponse, ItemStatus, ImportEmailResponse, Contractor, WorkOrder, WorkOrderStatus } from "./types"
 
 export type Page =
   | { type: "dashboard" }
@@ -11,6 +11,8 @@ export type Page =
   | { type: "requests" }
   | { type: "request-review"; requestId: string }
   | { type: "items"; filterUnitId?: string }
+  | { type: "work-orders" }
+  | { type: "work-order-detail"; workOrderId: string }
 
 export interface CreateRequestPayload {
   projectId?: string
@@ -39,6 +41,26 @@ export interface ItemFilters {
   requestId?: string
 }
 
+export interface CreateContractorPayload {
+  name: string
+  contactName: string
+  email: string
+  phone?: string
+  trade?: string
+}
+
+export interface CreateWorkOrderPayload {
+  contractorId: string
+  itemIds: string[]
+  accessNotes?: string
+  messageBody?: string
+}
+
+export interface WorkOrderFilters {
+  status?: string
+  contractorId?: string
+}
+
 interface AppContextValue {
   loading: boolean
   currentPage: Page
@@ -64,6 +86,14 @@ interface AppContextValue {
   archiveProject: (projectId: string, archive: boolean) => Promise<void>
   archiveUnit: (unitId: string, archive: boolean) => Promise<void>
   updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
+  contractors: Contractor[]
+  workOrders: WorkOrder[]
+  fetchContractors: () => Promise<void>
+  createContractor: (payload: CreateContractorPayload) => Promise<Contractor>
+  fetchWorkOrders: (projectId?: string | null, filters?: WorkOrderFilters) => Promise<void>
+  createWorkOrder: (payload: CreateWorkOrderPayload) => Promise<WorkOrder>
+  issueWorkOrder: (workOrderId: string) => Promise<{ workOrder: WorkOrder; accessUrl: string }>
+  closeWorkOrder: (workOrderId: string) => Promise<void>
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -76,6 +106,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [requests, setRequests] = useState<MaintenanceRequest[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [contractors, setContractors] = useState<Contractor[]>([])
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
 
   const fetchProjects = useCallback(async (includeArchived?: boolean): Promise<Project[]> => {
     try {
@@ -139,10 +171,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const fetchContractors = useCallback(async () => {
+    try {
+      const res = await fetch("/api/contractors")
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data: Contractor[] = await res.json()
+      setContractors(data)
+    } catch (err) {
+      console.error("Failed to fetch contractors:", err)
+    }
+  }, [])
+
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [projectsData] = await Promise.all([fetchProjects(), fetchUnits(), fetchRequests()])
+        const [projectsData] = await Promise.all([fetchProjects(), fetchUnits(), fetchRequests(), fetchContractors()])
 
         if (projectsData.length > 0) {
           const firstId = projectsData[0].id
@@ -156,7 +199,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     fetchAll()
-  }, [fetchProjects, fetchUnits, fetchRequests, fetchItems])
+  }, [fetchProjects, fetchUnits, fetchRequests, fetchItems, fetchContractors])
 
   const navigateTo = useCallback((page: Page) => {
     setCurrentPage(page)
@@ -381,6 +424,87 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   )
 
+  const createContractor = useCallback(
+    async (payload: CreateContractorPayload): Promise<Contractor> => {
+      const res = await fetch("/api/contractors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create contractor")
+      }
+      const created: Contractor = await res.json()
+      await fetchContractors()
+      return created
+    },
+    [fetchContractors],
+  )
+
+  const fetchWorkOrders = useCallback(async (projectId?: string | null, filters?: WorkOrderFilters) => {
+    try {
+      const params = new URLSearchParams()
+      if (projectId) params.set("projectId", projectId)
+      if (filters?.status && filters.status !== "all") params.set("status", filters.status)
+      if (filters?.contractorId && filters.contractorId !== "all") params.set("contractorId", filters.contractorId)
+      const res = await fetch(`/api/work-orders?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setWorkOrders(data)
+    } catch (err) {
+      console.error("Failed to fetch work orders:", err)
+    }
+  }, [])
+
+  const createWorkOrder = useCallback(
+    async (payload: CreateWorkOrderPayload): Promise<WorkOrder> => {
+      const res = await fetch("/api/work-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create work order")
+      }
+      const created: WorkOrder = await res.json()
+      return created
+    },
+    [],
+  )
+
+  const issueWorkOrder = useCallback(
+    async (workOrderId: string): Promise<{ workOrder: WorkOrder; accessUrl: string }> => {
+      const res = await fetch(`/api/work-orders/${workOrderId}/issue`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to issue work order")
+      }
+      const data = await res.json()
+      if (selectedProjectId) {
+        await fetchItems(selectedProjectId)
+      }
+      return data
+    },
+    [fetchItems, selectedProjectId],
+  )
+
+  const closeWorkOrder = useCallback(
+    async (workOrderId: string) => {
+      const res = await fetch(`/api/work-orders/${workOrderId}/close`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to close work order")
+      }
+    },
+    [],
+  )
+
   return (
     <AppContext.Provider
       value={{
@@ -408,6 +532,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         archiveProject,
         archiveUnit,
         updateItemStatus,
+        contractors,
+        workOrders,
+        fetchContractors,
+        createContractor,
+        fetchWorkOrders,
+        createWorkOrder,
+        issueWorkOrder,
+        closeWorkOrder,
       }}
     >
       {children}

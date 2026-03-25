@@ -16,9 +16,10 @@ model Project {
   createdAt   DateTime  @default(now())
   archivedAt  DateTime?
 
-  units    Unit[]
-  requests MaintenanceRequest[]
-  items    Item[]
+  units      Unit[]
+  requests   MaintenanceRequest[]
+  items      Item[]
+  workOrders WorkOrder[]
 }
 
 model Unit {
@@ -94,7 +95,16 @@ enum Priority {
 enum ItemStatus {
   New
   Assigned
-  InProgress @map("In Progress")
+  InProgress                @map("In Progress")
+  MarkedCompleteNeedsReview
+  Completed
+  Closed
+}
+
+enum WorkOrderStatus {
+  Draft
+  Issued
+  InProgress
   Completed
   Closed
 }
@@ -112,11 +122,87 @@ model Item {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  project Project            @relation(fields: [projectId], references: [id])
-  request MaintenanceRequest @relation(fields: [requestId], references: [id])
-  unit    Unit               @relation(fields: [unitId], references: [id])
+  project        Project            @relation(fields: [projectId], references: [id])
+  request        MaintenanceRequest @relation(fields: [requestId], references: [id])
+  unit           Unit               @relation(fields: [unitId], references: [id])
+  workOrderItems WorkOrderItem[]
+  activities     ItemActivity[]
 
   @@index([projectId])
   @@index([requestId])
   @@index([unitId])
+}
+
+model Contractor {
+  id          String      @id @default(uuid())
+  name        String
+  contactName String
+  email       String
+  phone       String?
+  trade       String?
+  createdAt   DateTime    @default(now())
+
+  workOrders WorkOrder[]
+}
+
+model WorkOrder {
+  id           String          @id @default(uuid())
+  reference    String          @unique
+  projectId    String
+  contractorId String
+  status       WorkOrderStatus @default(Draft)
+  issuedAt     DateTime?
+  completedAt  DateTime?
+  closedAt     DateTime?
+  accessNotes  String?
+  messageBody  String?
+  createdAt    DateTime        @default(now())
+
+  project    Project           @relation(fields: [projectId], references: [id])
+  contractor Contractor        @relation(fields: [contractorId], references: [id])
+  items      WorkOrderItem[]
+  access     WorkOrderAccess[]
+
+  @@index([projectId])
+  @@index([contractorId])
+}
+
+model WorkOrderItem {
+  id                      String    @id @default(uuid())
+  workOrderId             String
+  itemId                  String
+  isCompletedByContractor Boolean   @default(false)
+  completedAt             DateTime?
+  completionNotes         String?
+  createdAt               DateTime  @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  item      Item      @relation(fields: [itemId], references: [id])
+
+  @@unique([workOrderId, itemId])
+  @@index([workOrderId])
+  @@index([itemId])
+}
+
+model WorkOrderAccess {
+  id          String   @id @default(uuid())
+  workOrderId String
+  token       String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  @@index([workOrderId])
+}
+
+model ItemActivity {
+  id        String   @id @default(uuid())
+  itemId    String
+  message   String
+  createdAt DateTime @default(now())
+
+  item Item @relation(fields: [itemId], references: [id])
+
+  @@index([itemId])
 }

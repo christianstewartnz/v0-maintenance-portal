@@ -18,9 +18,9 @@ export async function GET(req: NextRequest) {
   }
 
   if (status === "needs_review" || status === "processed" || status === "error" || status === "archived") {
-    where.status = status;
+    where.status = status as Prisma.MaintenanceRequestWhereInput["status"];
   } else {
-    where.status = { not: "archived" };
+    where.status = { not: "archived" } as Prisma.MaintenanceRequestWhereInput["status"];
   }
 
   if (search) {

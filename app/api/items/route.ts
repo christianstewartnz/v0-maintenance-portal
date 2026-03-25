@@ -40,7 +40,15 @@ export async function GET(req: NextRequest) {
     const items = await prisma.item.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      include: { project: true, unit: true, request: true },
+      include: {
+        project: true,
+        unit: true,
+        request: true,
+        workOrderItems: {
+          include: { workOrder: { select: { id: true, reference: true, status: true } } },
+        },
+        activities: { orderBy: { createdAt: "desc" }, take: 5 },
+      },
     });
     return NextResponse.json(normalizeItems(items));
   } catch (error) {

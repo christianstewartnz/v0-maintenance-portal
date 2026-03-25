@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { LayoutGrid, List, ClipboardList, Search, XCircle } from "lucide-react"
+import { LayoutGrid, List, ClipboardList, Search, XCircle, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { WorkOrderIssueDialog } from "@/components/work-order-issue-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +38,7 @@ import { useApp } from "@/lib/app-context"
 import type { ItemStatus, Trade } from "@/lib/types"
 import { format } from "date-fns"
 
-const ALL_STATUSES: ItemStatus[] = ["New", "Assigned", "In Progress", "Completed", "Closed"]
+const ALL_STATUSES: ItemStatus[] = ["New", "Assigned", "In Progress", "Marked Complete - Needs Review", "Completed (Legacy)", "Closed"]
 const ALL_TRADES: Trade[] = [
   "Plumbing",
   "Electrical",
@@ -68,7 +70,9 @@ function getStatusStyle(status: string) {
       return "bg-chart-2/10 text-chart-2 border-chart-2/20"
     case "In Progress":
       return "bg-warning/10 text-warning-foreground border-warning/20"
-    case "Completed":
+    case "Marked Complete - Needs Review":
+      return "bg-amber-500/10 text-amber-600 border-amber-500/20"
+    case "Completed (Legacy)":
       return "bg-success/10 text-success border-success/20"
     case "Closed":
       return "bg-muted text-muted-foreground border-border"
@@ -90,6 +94,8 @@ export function ItemsListPage() {
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [search, setSearch] = useState("")
   const [viewMode, setViewMode] = useState<"table" | "board">("table")
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [showIssueDialog, setShowIssueDialog] = useState(false)
 
   useEffect(() => {
     if (!selectedProjectId) return
@@ -114,6 +120,28 @@ export function ItemsListPage() {
       return true
     })
   }, [items, priorityFilter, search])
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
+  }
+
+  const toggleAllItems = () => {
+    if (selectedItemIds.size === filtered.length) {
+      setSelectedItemIds(new Set())
+    } else {
+      setSelectedItemIds(new Set(filtered.map((i) => i.id)))
+    }
+  }
+
+  const selectedItems = items.filter((i) => selectedItemIds.has(i.id))
 
   const projectUnits = useMemo(() => {
     if (!selectedProjectId) return units
@@ -221,6 +249,18 @@ export function ItemsListPage() {
           </div>
         </div>
 
+        {selectedItemIds.size > 0 && (
+          <div className="mb-4 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2">
+            <span className="text-sm font-medium">{selectedItemIds.size} item(s) selected</span>
+            <Button size="sm" onClick={() => setShowIssueDialog(true)}>
+              Issue Work Order
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedItemIds(new Set())}>
+              Clear selection
+            </Button>
+          </div>
+        )}
+
         {viewMode === "table" ? (
           <Card>
             <CardContent className="pt-6">
@@ -235,12 +275,19 @@ export function ItemsListPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={filtered.length > 0 && selectedItemIds.size === filtered.length}
+                            onCheckedChange={toggleAllItems}
+                          />
+                        </TableHead>
                         <TableHead className="text-xs font-medium">Project</TableHead>
                         <TableHead className="text-xs font-medium">Unit</TableHead>
                         <TableHead className="text-xs font-medium">Title</TableHead>
                         <TableHead className="text-xs font-medium">Trade</TableHead>
                         <TableHead className="text-xs font-medium">Priority</TableHead>
                         <TableHead className="text-xs font-medium">Status</TableHead>
+                        <TableHead className="text-xs font-medium">Work Order</TableHead>
                         <TableHead className="text-xs font-medium">Created</TableHead>
                         <TableHead className="text-xs font-medium">Updated</TableHead>
                         <TableHead className="text-xs font-medium w-[1%]" />
@@ -253,6 +300,12 @@ export function ItemsListPage() {
                           className="cursor-pointer hover:bg-accent/50"
                           onClick={() => navigateTo({ type: "unit-detail", unitId: item.unitId })}
                         >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedItemIds.has(item.id)}
+                              onCheckedChange={() => toggleItemSelection(item.id)}
+                            />
+                          </TableCell>
                           <TableCell className="text-sm text-foreground">
                             {item.project?.name ?? "Unknown"}
                           </TableCell>
@@ -272,6 +325,22 @@ export function ItemsListPage() {
                             <Badge variant="outline" className={getStatusStyle(item.status)}>
                               {item.status}
                             </Badge>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            {item.workOrderItems && item.workOrderItems.length > 0 ? (
+                              <button
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                                onClick={() => {
+                                  const wo = item.workOrderItems![0].workOrder
+                                  if (wo) navigateTo({ type: "work-order-detail", workOrderId: wo.id })
+                                }}
+                              >
+                                <FileText className="size-3" />
+                                {item.workOrderItems[0].workOrder?.reference}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">--</span>
+                            )}
                           </TableCell>
                           <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                             {format(new Date(item.createdAt), "MMM d")}
@@ -364,6 +433,17 @@ export function ItemsListPage() {
           </div>
         )}
       </div>
+
+      <WorkOrderIssueDialog
+        open={showIssueDialog}
+        onOpenChange={setShowIssueDialog}
+        selectedItems={selectedItems}
+        onComplete={() => {
+          setSelectedItemIds(new Set())
+          setShowIssueDialog(false)
+          if (selectedProjectId) fetchItems(selectedProjectId)
+        }}
+      />
     </div>
   )
 }

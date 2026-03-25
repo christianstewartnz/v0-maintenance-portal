@@ -11,6 +11,8 @@ import { UnitDetailPage } from "@/components/pages/unit-detail-page"
 import { RequestsListPage } from "@/components/pages/requests-list-page"
 import { RequestReviewPage } from "@/components/pages/request-review-page"
 import { ItemsListPage } from "@/components/pages/items-list-page"
+import { WorkOrdersListPage } from "@/components/pages/work-orders-list-page"
+import { WorkOrderDetailPage } from "@/components/pages/work-order-detail-page"
 
 export function AppShell() {
   const { currentPage, loading } = useApp()
@@ -42,6 +44,10 @@ export function AppShell() {
         return <RequestReviewPage />
       case "items":
         return <ItemsListPage />
+      case "work-orders":
+        return <WorkOrdersListPage />
+      case "work-order-detail":
+        return <WorkOrderDetailPage />
       default:
         return <DashboardPage />
     }
