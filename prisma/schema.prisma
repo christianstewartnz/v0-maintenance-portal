@@ -1,7 +1,5 @@
 generator client {
-  provider            = "prisma-client"
-  output              = "../lib/generated/prisma"
-  importFileExtension = ""
+  provider = "prisma-client-js"
 }
 
 datasource db {
