@@ -5,6 +5,9 @@ interface CsvRow {
   project: string;
   unitNumber: string;
   address: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerPhone?: string;
 }
 
 function parseCsv(
@@ -27,6 +30,9 @@ function parseCsv(
   const projectIdx = header.indexOf("project");
   const unitNumberIdx = header.indexOf("unitnumber");
   const addressIdx = header.indexOf("address");
+  const ownerNameIdx = header.indexOf("ownername");
+  const ownerEmailIdx = header.indexOf("owneremail");
+  const ownerPhoneIdx = header.indexOf("ownerphone");
 
   const hasProjectColumn = projectIdx !== -1;
 
@@ -74,7 +80,18 @@ function parseCsv(
       continue;
     }
 
-    rows.push({ project, unitNumber, address });
+    const ownerName = ownerNameIdx !== -1 ? (cols[ownerNameIdx] ?? "").trim() : undefined;
+    const ownerEmail = ownerEmailIdx !== -1 ? (cols[ownerEmailIdx] ?? "").trim() : undefined;
+    const ownerPhone = ownerPhoneIdx !== -1 ? (cols[ownerPhoneIdx] ?? "").trim() : undefined;
+
+    rows.push({
+      project,
+      unitNumber,
+      address,
+      ownerName: ownerName || undefined,
+      ownerEmail: ownerEmail || undefined,
+      ownerPhone: ownerPhone || undefined,
+    });
   }
 
   return { rows, errors };
@@ -167,6 +184,9 @@ export async function POST(req: NextRequest) {
     projectId: projectMap.get(row.project.toLowerCase())!,
     unitNumber: row.unitNumber.trim(),
     address: row.address.trim(),
+    ownerName: row.ownerName ?? null,
+    ownerEmail: row.ownerEmail ?? null,
+    ownerPhone: row.ownerPhone ?? null,
   }));
 
   const existingUnits = await prisma.unit.findMany({
@@ -207,6 +227,9 @@ export async function POST(req: NextRequest) {
       projectId: row.projectId,
       unitNumber: row.unitNumber,
       address: row.address,
+      ownerName: row.ownerName,
+      ownerEmail: row.ownerEmail,
+      ownerPhone: row.ownerPhone,
     })),
   });
 

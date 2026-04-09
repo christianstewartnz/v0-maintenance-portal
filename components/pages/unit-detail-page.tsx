@@ -187,21 +187,53 @@ export function UnitDetailPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6">
-        <div className="mb-6 flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-foreground">Unit {unit.unitNumber}</h2>
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="text-xs">{openItems.length} Open</Badge>
-              {highPriority.length > 0 && (
-                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
-                  <AlertTriangle className="mr-1 size-3" />
-                  {highPriority.length} High Priority
-                </Badge>
-              )}
+        <div className="mb-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-foreground">Unit {unit.unitNumber}</h2>
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="text-xs">{openItems.length} Open</Badge>
+                {highPriority.length > 0 && (
+                  <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
+                    <AlertTriangle className="mr-1 size-3" />
+                    {highPriority.length} High Priority
+                  </Badge>
+                )}
+              </div>
             </div>
+            <p className="text-sm text-muted-foreground">{unit.address}</p>
+            <p className="text-xs text-muted-foreground">{project.name}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{unit.address}</p>
-          <p className="text-xs text-muted-foreground">{project.name}</p>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Owner Contact Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="flex flex-col gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Name</dt>
+                  <dd className="text-sm text-foreground">{unit.ownerName ?? "Not provided"}</dd>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Email</dt>
+                  <dd className="text-sm text-foreground">
+                    {unit.ownerEmail
+                      ? <a href={`mailto:${unit.ownerEmail}`} className="hover:underline">{unit.ownerEmail}</a>
+                      : "Not provided"}
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <dt className="text-xs text-muted-foreground">Phone</dt>
+                  <dd className="text-sm text-foreground">
+                    {unit.ownerPhone
+                      ? <a href={`tel:${unit.ownerPhone}`} className="hover:underline">{unit.ownerPhone}</a>
+                      : "Not provided"}
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="open" className="flex flex-col gap-4">

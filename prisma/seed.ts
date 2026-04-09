@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient } from "../lib/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({
@@ -8,6 +8,9 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  const seedUserId =
+    process.env.SEED_USER_ID ?? "00000000-0000-0000-0000-000000000000";
+
   // Clear existing data (order matters due to FK constraints)
   await prisma.item.deleteMany();
   await prisma.maintenanceRequest.deleteMany();
@@ -19,18 +22,21 @@ async function main() {
     data: [
       {
         id: "proj_01",
+        userId: seedUserId,
         name: "Riverside Apartments",
         description: "120-unit residential complex on River Road",
         createdAt: new Date("2025-09-15T10:30:00Z"),
       },
       {
         id: "proj_02",
+        userId: seedUserId,
         name: "Oakwood Towers",
         description: "Commercial and residential mixed-use building",
         createdAt: new Date("2025-11-01T08:00:00Z"),
       },
       {
         id: "proj_03",
+        userId: seedUserId,
         name: "Cedar Park Condos",
         description: "Luxury condominiums in the Cedar Park district",
         createdAt: new Date("2026-01-10T14:00:00Z"),

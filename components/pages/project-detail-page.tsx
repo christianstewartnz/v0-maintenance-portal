@@ -119,6 +119,9 @@ export function ProjectDetailPage() {
   const [addUnitOpen, setAddUnitOpen] = useState(false)
   const [newUnitNumber, setNewUnitNumber] = useState("")
   const [newAddress, setNewAddress] = useState("")
+  const [newOwnerName, setNewOwnerName] = useState("")
+  const [newOwnerEmail, setNewOwnerEmail] = useState("")
+  const [newOwnerPhone, setNewOwnerPhone] = useState("")
   const [creatingUnit, setCreatingUnit] = useState(false)
 
   const [csvDialogOpen, setCsvDialogOpen] = useState(false)
@@ -149,10 +152,20 @@ export function ProjectDetailPage() {
     if (!projectId || !newUnitNumber.trim() || !newAddress.trim()) return
     setCreatingUnit(true)
     try {
-      await createUnit({ projectId, unitNumber: newUnitNumber, address: newAddress })
+      await createUnit({
+        projectId,
+        unitNumber: newUnitNumber,
+        address: newAddress,
+        ownerName: newOwnerName.trim() || undefined,
+        ownerEmail: newOwnerEmail.trim() || undefined,
+        ownerPhone: newOwnerPhone.trim() || undefined,
+      })
       setAddUnitOpen(false)
       setNewUnitNumber("")
       setNewAddress("")
+      setNewOwnerName("")
+      setNewOwnerEmail("")
+      setNewOwnerPhone("")
     } catch (err) {
       console.error("Failed to create unit:", err)
     } finally {
@@ -161,8 +174,10 @@ export function ProjectDetailPage() {
   }
 
   const handleDownloadTemplate = useCallback(() => {
-    const header = "project,unitNumber,address"
-    const sampleRow = project ? `${project.name},,` : ",,"
+    const header = "project,unitNumber,address,ownerName,ownerEmail,ownerPhone"
+    const sampleRow = project
+      ? `${project.name},101,1 Example St,John Smith,john@email.com,021 123 456`
+      : ",101,1 Example St,John Smith,john@email.com,021 123 456"
     const csv = [header, sampleRow].join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
@@ -549,7 +564,7 @@ export function ProjectDetailPage() {
                         <DialogHeader>
                           <DialogTitle>Upload Units CSV</DialogTitle>
                           <DialogDescription>
-                            Upload a CSV with columns: <code className="text-xs bg-muted px-1 py-0.5 rounded">project</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">unitNumber</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">address</code>. Download the template to get started.
+                            Upload a CSV with required columns: <code className="text-xs bg-muted px-1 py-0.5 rounded">project</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">unitNumber</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">address</code>. Optional columns: <code className="text-xs bg-muted px-1 py-0.5 rounded">ownerName</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">ownerEmail</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">ownerPhone</code>. Download the template to get started.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="flex flex-col gap-4 py-2">
@@ -591,7 +606,16 @@ export function ProjectDetailPage() {
                       </DialogContent>
                     </Dialog>
 
-                    <Dialog open={addUnitOpen} onOpenChange={setAddUnitOpen}>
+                    <Dialog open={addUnitOpen} onOpenChange={(open) => {
+                      setAddUnitOpen(open)
+                      if (!open) {
+                        setNewUnitNumber("")
+                        setNewAddress("")
+                        setNewOwnerName("")
+                        setNewOwnerEmail("")
+                        setNewOwnerPhone("")
+                      }
+                    }}>
                       <DialogTrigger asChild>
                         <Button size="sm">
                           <Plus className="mr-1.5 size-4" />
@@ -623,6 +647,38 @@ export function ProjectDetailPage() {
                               onChange={(e) => setNewAddress(e.target.value)}
                               placeholder="e.g. 100 River Road, Apt 101"
                             />
+                          </div>
+                          <div className="flex flex-col gap-3 pt-1">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Owner Contact Details</p>
+                            <div className="flex flex-col gap-2">
+                              <Label htmlFor="owner-name">Owner Name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                              <Input
+                                id="owner-name"
+                                value={newOwnerName}
+                                onChange={(e) => setNewOwnerName(e.target.value)}
+                                placeholder="e.g. John Smith"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Label htmlFor="owner-email">Owner Email <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                              <Input
+                                id="owner-email"
+                                type="email"
+                                value={newOwnerEmail}
+                                onChange={(e) => setNewOwnerEmail(e.target.value)}
+                                placeholder="e.g. john@email.com"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Label htmlFor="owner-phone">Owner Phone <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                              <Input
+                                id="owner-phone"
+                                type="tel"
+                                value={newOwnerPhone}
+                                onChange={(e) => setNewOwnerPhone(e.target.value)}
+                                placeholder="e.g. 021 123 456"
+                              />
+                            </div>
                           </div>
                         </div>
                         <DialogFooter>

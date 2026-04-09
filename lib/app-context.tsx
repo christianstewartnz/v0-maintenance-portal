@@ -33,6 +33,9 @@ export interface CreateUnitPayload {
   projectId: string
   unitNumber: string
   address: string
+  ownerName?: string
+  ownerEmail?: string
+  ownerPhone?: string
 }
 
 export interface ItemFilters {

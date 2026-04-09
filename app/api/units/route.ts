@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
 
     const units = await prisma.unit.findMany({
-      where: includeArchived ? {} : { archivedAt: null },
+      where: {
+        project: { userId: user.id },
+        ...(includeArchived ? {} : { archivedAt: null }),
+      },
       orderBy: { unitNumber: "asc" },
     });
     return NextResponse.json(units);
@@ -21,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { projectId, unitNumber, address } = body;
+  const { projectId, unitNumber, address, ownerName, ownerEmail, ownerPhone } = body;
 
   if (!projectId || !unitNumber || !address) {
     return NextResponse.json(
@@ -44,6 +58,9 @@ export async function POST(req: NextRequest) {
       projectId,
       unitNumber: String(unitNumber).trim(),
       address: String(address).trim(),
+      ownerName: ownerName ? String(ownerName).trim() : null,
+      ownerEmail: ownerEmail ? String(ownerEmail).trim() : null,
+      ownerPhone: ownerPhone ? String(ownerPhone).trim() : null,
     },
   });
 

@@ -1,5 +1,6 @@
 export interface Project {
   id: string
+  userId: string
   name: string
   address: string
   description: string
@@ -13,6 +14,9 @@ export interface Unit {
   unitNumber: string
   address: string
   archivedAt: string | null
+  ownerName: string | null
+  ownerEmail: string | null
+  ownerPhone: string | null
 }
 
 export type RequestStatus = "needs_review" | "processed" | "error" | "archived"
@@ -77,6 +81,7 @@ export interface Item {
   unitId: string
   title: string
   description: string
+  otherNotes: string | null
   trade: Trade
   priority: Priority
   status: ItemStatus
@@ -96,6 +101,7 @@ export interface DraftItem {
   id: string
   title: string
   description: string
+  otherNotes: string | null
   trade: Trade
   priority: Priority
 }
@@ -106,6 +112,7 @@ export interface AIDraftResponse {
   items: {
     title: string
     description: string
+    otherNotes: string | null
     trade: Trade
     priority: Priority
   }[]
