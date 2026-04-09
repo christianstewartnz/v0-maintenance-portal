@@ -3,9 +3,22 @@
 import { useEffect, useState } from "react"
 import type { Session } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabaseClient"
-import { AppProvider } from "@/lib/app-context"
+import { AppProvider, useApp } from "@/lib/app-context"
 import { AppShell } from "@/components/app-shell"
 import { Login } from "@/components/Login"
+
+function DashboardDocumentTitle() {
+  const { currentPage } = useApp()
+
+  useEffect(() => {
+    document.title =
+      currentPage.type === "dashboard"
+        ? "Dashboard · Maintenance Portal"
+        : "Maintenance Portal"
+  }, [currentPage.type])
+
+  return null
+}
 
 export default function Page() {
   const [session, setSession] = useState<Session | null>(null)
@@ -38,6 +51,7 @@ export default function Page() {
 
   return (
     <AppProvider>
+      <DashboardDocumentTitle />
       <AppShell />
     </AppProvider>
   )

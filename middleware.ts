@@ -1,14 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = [
-  '/login',
-  '/work-orders/access',
-  '/api/work-orders/access',
-]
-
+/** Paths that never require a Supabase session. */
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  if (pathname === '/login' || pathname.startsWith('/login/')) return true
+  if (pathname === '/workorder' || pathname.startsWith('/workorder/')) return true
+  // Anonymous token API used by /workorder/[token]
+  if (pathname.startsWith('/api/work-orders/access')) return true
+  // Legacy shared links still issued by the app
+  if (pathname.startsWith('/work-orders/access')) return true
+  return false
 }
 
 export async function middleware(request: NextRequest) {
@@ -43,6 +44,13 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+
+  if (user && (pathname === '/login' || pathname.startsWith('/login/'))) {
+    const home = request.nextUrl.clone()
+    home.pathname = '/'
+    home.search = ''
+    return NextResponse.redirect(home)
+  }
 
   if (!user && !isPublicPath(pathname)) {
     const loginUrl = request.nextUrl.clone()

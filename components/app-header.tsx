@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -11,15 +12,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { User, LogOut } from "lucide-react"
+import { useApp } from "@/lib/app-context"
+import { supabase } from "@/lib/supabaseClient"
 
 export function AppHeader() {
+  const router = useRouter()
+  const { currentPage } = useApp()
+
+  const headerTitle =
+    currentPage.type === "dashboard"
+      ? "Dashboard · Maintenance Portal"
+      : "Maintenance Portal"
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
         <Separator orientation="vertical" className="h-5" />
         <span className="text-sm font-medium text-foreground">
-          Maintenance Portal
+          {headerTitle}
         </span>
       </div>
       <DropdownMenu>
@@ -38,7 +49,13 @@ export function AppHeader() {
             Profile
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={async () => {
+              await supabase.auth.signOut()
+              router.push("/login")
+              router.refresh()
+            }}
+          >
             <LogOut className="mr-2 size-4" />
             Logout
           </DropdownMenuItem>
