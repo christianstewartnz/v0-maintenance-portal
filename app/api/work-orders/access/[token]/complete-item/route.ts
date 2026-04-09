@@ -25,7 +25,7 @@ export async function POST(
       );
     }
 
-    const { workOrderItemId } = await req.json();
+    const { workOrderItemId, completionNotes } = await req.json();
     if (!workOrderItemId) {
       return NextResponse.json(
         { error: "workOrderItemId is required" },
@@ -42,59 +42,99 @@ export async function POST(
       return NextResponse.json({ error: "Item not found on this work order" }, { status: 404 });
     }
 
-    if (woItem.isCompletedByContractor) {
-      return NextResponse.json({ error: "Item is already marked complete" }, { status: 400 });
-    }
-
+    const wasCompleted = woItem.isCompletedByContractor;
     const now = new Date();
 
-    // Mark the WorkOrderItem complete
-    await prisma.workOrderItem.update({
-      where: { id: workOrderItemId },
-      data: {
-        isCompletedByContractor: true,
-        completedAt: now,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      if (wasCompleted) {
+        // Toggle back to incomplete before final confirmation.
+        await tx.workOrderItem.update({
+          where: { id: workOrderItemId },
+          data: {
+            isCompletedByContractor: false,
+            completedAt: null,
+          },
+        });
 
-    // Update the Item status
-    await prisma.item.update({
-      where: { id: woItem.itemId },
-      data: { status: "MarkedCompleteNeedsReview" },
-    });
+        // Revert status only when it is currently in contractor-complete review state.
+        await tx.item.updateMany({
+          where: { id: woItem.itemId, status: "MarkedCompleteNeedsReview" },
+          data: { status: "Assigned" },
+        });
 
-    // Log activity
-    await prisma.itemActivity.create({
-      data: {
-        id: crypto.randomUUID(),
-        itemId: woItem.itemId,
-        message: `Marked complete by contractor on ${now.toISOString().split("T")[0]}`,
-      },
-    });
+        await tx.itemActivity.create({
+          data: {
+            id: crypto.randomUUID(),
+            itemId: woItem.itemId,
+            message: `Marked incomplete by contractor on ${now.toISOString().split("T")[0]}`,
+          },
+        });
+      } else {
+        await tx.workOrderItem.update({
+          where: { id: workOrderItemId },
+          data: {
+            isCompletedByContractor: true,
+            completedAt: now,
+            completionNotes: typeof completionNotes === "string" && completionNotes.trim()
+              ? completionNotes.trim()
+              : null,
+          },
+        });
 
-    // If work order was Issued, transition to InProgress
-    if (access.workOrder.status === "Issued") {
-      await prisma.workOrder.update({
-        where: { id: access.workOrderId },
-        data: { status: "InProgress" },
+        await tx.item.update({
+          where: { id: woItem.itemId },
+          data: { status: "MarkedCompleteNeedsReview" },
+        });
+
+        await tx.itemActivity.create({
+          data: {
+            id: crypto.randomUUID(),
+            itemId: woItem.itemId,
+            message: `Marked complete by contractor on ${now.toISOString().split("T")[0]}`,
+          },
+        });
+      }
+
+      // Keep Work Order status aligned with checklist progress before final confirmation.
+      const completion = await tx.workOrderItem.aggregate({
+        where: {
+          workOrderId: access.workOrderId,
+          isCompletedByContractor: true,
+        },
+        _count: { _all: true },
       });
-    }
+      const completedCount = completion._count._all;
 
-    // Fire notification placeholder
-    const contractor = await prisma.contractor.findUnique({
-      where: { id: access.workOrder.contractorId },
+      if (completedCount === 0 && access.workOrder.status === "InProgress") {
+        await tx.workOrder.update({
+          where: { id: access.workOrderId },
+          data: { status: "Issued" },
+        });
+      } else if (completedCount > 0 && access.workOrder.status === "Issued") {
+        await tx.workOrder.update({
+          where: { id: access.workOrderId },
+          data: { status: "InProgress" },
+        });
+      }
     });
-    if (contractor) {
-      await notifyItemCompleted(
-        access.workOrder.reference,
-        woItem.item.title,
-        contractor.name
-      );
+
+    if (!wasCompleted) {
+      // Notify only when moving into completed state.
+      const contractor = await prisma.contractor.findUnique({
+        where: { id: access.workOrder.contractorId },
+      });
+      if (contractor) {
+        await notifyItemCompleted(
+          access.workOrder.reference,
+          woItem.item.title,
+          contractor.name
+        );
+      }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, isCompletedByContractor: !wasCompleted });
   } catch (error) {
-    console.error("Failed to mark item complete:", error);
-    return NextResponse.json({ error: "Failed to mark item complete" }, { status: 500 });
+    console.error("Failed to toggle item completion:", error);
+    return NextResponse.json({ error: "Failed to toggle item completion" }, { status: 500 });
   }
 }

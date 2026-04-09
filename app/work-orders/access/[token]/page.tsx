@@ -5,6 +5,10 @@ import { use } from "react"
 import { format } from "date-fns"
 import { CheckCircle2, Circle, Wrench, Loader2 } from "lucide-react"
 import type { WorkOrder, WorkOrderItem } from "@/lib/types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 
 export default function ContractorAccessPage({
   params,
@@ -102,7 +106,7 @@ export default function ContractorAccessPage({
       })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || "Failed to mark item complete")
+        throw new Error(data.error || "Failed to update item completion")
       }
       await fetchData()
     } catch (err: any) {
@@ -178,7 +182,7 @@ export default function ContractorAccessPage({
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/30">
       <div className="mx-auto max-w-3xl px-4 py-8">
         {/* Header */}
         <div className="mb-2 flex items-center gap-2">
@@ -188,46 +192,48 @@ export default function ContractorAccessPage({
           <span className="text-sm font-semibold text-foreground">Maintenance Portal</span>
         </div>
 
-        <div className="mb-8 rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-semibold text-foreground">
-              Work Order {workOrder.reference}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {workOrder.project?.name} &middot; {workOrder.contractor?.name}
-            </p>
-          </div>
+        <Card className="mb-8 gap-0 border-border/80 py-0 shadow-sm">
+          <CardHeader className="gap-2 px-6 py-6">
+            <div className="flex flex-col gap-1">
+              <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+                Work Order {workOrder.reference}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {workOrder.project?.name} &middot; {workOrder.contractor?.name}
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 px-6 pb-6">
+            {/* Progress */}
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+              <div className="mb-2 flex items-end justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">
+                  {completedCount} of {totalCount} items completed
+                </p>
+                <p className="text-2xl font-bold tracking-tight text-foreground">{progressPct}%</p>
+              </div>
+              <Progress value={progressPct} className="h-3 rounded-full" />
+            </div>
 
-          {/* Progress */}
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                {completedCount} of {totalCount} items completed
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">{progressPct}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </div>
+            {workOrder.accessNotes && (
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Access Notes
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{workOrder.accessNotes}</p>
+              </div>
+            )}
 
-          {workOrder.accessNotes && (
-            <div className="mt-4 rounded-lg bg-muted/50 px-4 py-3">
-              <p className="text-xs font-medium text-muted-foreground">Access Notes</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{workOrder.accessNotes}</p>
-            </div>
-          )}
-
-          {workOrder.messageBody && (
-            <div className="mt-3 rounded-lg bg-muted/50 px-4 py-3">
-              <p className="text-xs font-medium text-muted-foreground">Message</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{workOrder.messageBody}</p>
-            </div>
-          )}
-        </div>
+            {workOrder.messageBody && (
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Message
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{workOrder.messageBody}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Read-only banner */}
         {isReadOnly && (
@@ -259,29 +265,36 @@ export default function ContractorAccessPage({
         <div className="space-y-6">
           {itemsByUnit.map(
             ([unitId, { unitNumber, unitAddress, ownerContacts, items: woItems }]) => (
-            <div key={unitId}>
-              <div className="mb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Unit {unitNumber}
-                </h3>
-                {ownerContacts.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {ownerContacts.map((c, idx) => (
-                      <div key={idx} className="text-sm">
-                        <p className="font-medium text-foreground">{c.fromName}</p>
-                        <p className="text-muted-foreground">{c.fromEmail}</p>
-                        {c.fromPhone?.trim() ? (
-                          <p className="text-muted-foreground">{c.fromPhone}</p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {unitAddress.trim() ? (
-                  <p className="mt-2 text-sm text-muted-foreground">{unitAddress}</p>
-                ) : null}
-              </div>
-              <div className="space-y-2">
+            <Card key={unitId} className="gap-0 border-border/80 py-0 shadow-sm">
+              <CardHeader className="gap-3 px-5 py-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+                    Unit {unitNumber}
+                  </h3>
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    {woItems.length} item{woItems.length === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+                <div className="space-y-2 text-sm">
+                  {ownerContacts.length > 0 && (
+                    <div className="space-y-2">
+                      {ownerContacts.map((c, idx) => (
+                        <div key={idx} className="rounded-md bg-muted/35 px-3 py-2">
+                          <p className="font-medium text-foreground">{c.fromName}</p>
+                          <p className="text-muted-foreground">{c.fromEmail}</p>
+                          {c.fromPhone?.trim() ? (
+                            <p className="text-muted-foreground">{c.fromPhone}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {unitAddress.trim() ? (
+                    <p className="rounded-md bg-muted/35 px-3 py-2 text-muted-foreground">{unitAddress}</p>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 px-5 pb-5">
                 {woItems.map((woItem) => {
                   const isCompleted = woItem.isCompletedByContractor
                   const isCompletingThis = completingItemId === woItem.id
@@ -289,66 +302,83 @@ export default function ContractorAccessPage({
                   return (
                     <div
                       key={woItem.id}
-                      className={`rounded-xl border bg-card p-4 shadow-sm transition-colors ${
+                      className={`rounded-xl border p-4 shadow-xs transition-colors ${
                         isCompleted
-                          ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20"
-                          : "border-border"
+                          ? "border-green-200 bg-green-50/40 dark:border-green-900 dark:bg-green-950/20"
+                          : "border-border bg-card"
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5 shrink-0">
-                          {isCompleted ? (
+                        <button
+                          onClick={() => handleMarkComplete(woItem.id)}
+                          disabled={isReadOnly || isCompletingThis || completingAll || confirming}
+                          aria-label={isCompleted ? "Mark item incomplete" : "Mark item complete"}
+                          className="mt-0.5 shrink-0 rounded-full text-left transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isCompletingThis ? (
+                            <Loader2 className="size-5 animate-spin text-primary" />
+                          ) : isCompleted ? (
                             <CheckCircle2 className="size-5 text-green-600 dark:text-green-400" />
                           ) : (
                             <Circle className="size-5 text-muted-foreground/40" />
                           )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium ${isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                        </button>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p
+                            className={`text-base font-semibold leading-snug ${
+                              isCompleted
+                                ? "text-muted-foreground line-through"
+                                : "text-foreground"
+                            }`}
+                          >
                             {woItem.item?.title}
                           </p>
                           {woItem.item?.description && (
-                            <p className="mt-1 text-xs text-muted-foreground">
+                            <p className="text-sm leading-relaxed text-muted-foreground">
                               {woItem.item.description}
                             </p>
                           )}
+                          {isCompleted && (
+                            <div className="pt-1">
+                              <Badge
+                                variant="outline"
+                                className="border-green-300 bg-green-100/70 text-green-800 dark:border-green-800 dark:bg-green-950/60 dark:text-green-300"
+                              >
+                                Completed
+                              </Badge>
+                            </div>
+                          )}
                           {isCompleted && woItem.completedAt && (
-                            <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                            <p className="text-xs text-green-700 dark:text-green-400">
                               Completed {format(new Date(woItem.completedAt), "MMM d, yyyy")}
                             </p>
                           )}
                         </div>
-                        {!isReadOnly && !isCompleted && (
-                          <button
-                            onClick={() => handleMarkComplete(woItem.id)}
-                            disabled={isCompletingThis || completingAll}
-                            className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
-                          >
-                            {isCompletingThis ? (
-                              <Loader2 className="size-3 animate-spin" />
-                            ) : (
-                              "Mark Complete"
-                            )}
-                          </button>
+                        {!isReadOnly && (
+                          <div className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+                            {isCompleted ? "Checked" : "Tap circle"}
+                          </div>
                         )}
                       </div>
                     </div>
                   )
                 })}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )
           )}
         </div>
 
         {/* Actions */}
         {!isReadOnly && (
-          <div className="mt-8 space-y-3">
+          <Card className="mt-10 gap-0 border-border/80 py-0 shadow-sm">
+            <CardContent className="space-y-3 px-5 py-5">
             {!allComplete && (
-              <button
+              <Button
                 onClick={handleMarkAllComplete}
                 disabled={completingAll || completedCount === totalCount}
-                className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent disabled:opacity-50"
+                variant="outline"
+                className="h-11 w-full"
               >
                 {completingAll ? (
                   <span className="flex items-center justify-center gap-2">
@@ -358,14 +388,14 @@ export default function ContractorAccessPage({
                 ) : (
                   "Mark All as Complete"
                 )}
-              </button>
+              </Button>
             )}
 
             {allComplete && (
-              <button
+              <Button
                 onClick={handleConfirmComplete}
                 disabled={confirming}
-                className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="h-11 w-full text-sm font-semibold"
               >
                 {confirming ? (
                   <span className="flex items-center justify-center gap-2">
@@ -375,9 +405,10 @@ export default function ContractorAccessPage({
                 ) : (
                   "Confirm Work Order Complete"
                 )}
-              </button>
+              </Button>
             )}
-          </div>
+            </CardContent>
+          </Card>
         )}
 
         <div className="mt-12 border-t border-border pt-6 text-center">
