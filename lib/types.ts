@@ -181,3 +181,34 @@ export interface ItemActivity {
   message: string
   createdAt: string
 }
+
+/** Response shape for GET /api/dashboard */
+export interface DashboardNeedsReviewRow {
+  id: string
+  projectName: string | null
+  fromName: string
+  fromEmail: string
+  subject: string
+  receivedAt: string
+}
+
+export interface DashboardOpenItemsByProject {
+  projectId: string
+  projectName: string
+  openTotal: number
+  newCount: number
+  inProgressCount: number
+}
+
+export interface DashboardData {
+  stats: {
+    requestsNeedingReview: number
+    activeWorkOrders: number
+    openItems: number
+  }
+  needsReview: {
+    total: number
+    rows: DashboardNeedsReviewRow[]
+  }
+  openItemsByProject: DashboardOpenItemsByProject[]
+}

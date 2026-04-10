@@ -1,190 +1,214 @@
 "use client"
 
-import { ClipboardList, AlertTriangle, MessageSquareText, Wrench } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { formatDistanceToNow } from "date-fns"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { useApp } from "@/lib/app-context"
-import { format } from "date-fns"
-import { Filter } from "lucide-react"
-
-function getPriorityStyle(priority: string) {
-  switch (priority) {
-    case "Urgent":
-      return "bg-orange-50 text-orange-700 border-orange-200"
-    case "Normal":
-      return "bg-blue-50 text-blue-700 border-blue-200"
-    case "Low":
-      return "bg-gray-100 text-gray-600 border-gray-200"
-    default:
-      return "bg-gray-100 text-gray-600 border-gray-200"
-  }
-}
-
-function getStatusStyle(status: string) {
-  switch (status) {
-    case "New":
-      return "bg-gray-100 text-gray-600 border-gray-200"
-    case "Assigned":
-      return "bg-blue-50 text-blue-700 border-blue-200"
-    case "In Progress":
-      return "bg-yellow-50 text-yellow-700 border-yellow-200"
-    case "Marked Complete – Needs Review":
-      return "bg-orange-50 text-orange-700 border-orange-200"
-    case "Completed":
-      return "bg-green-50 text-green-700 border-green-200"
-    case "Closed":
-      return "bg-green-50 text-green-700 border-green-200"
-    default:
-      return "bg-gray-100 text-gray-600 border-gray-200"
-  }
-}
+import type { DashboardData } from "@/lib/types"
 
 export function DashboardPage() {
-  const { items, requests, navigateTo, projects, units, workOrders } = useApp()
+  const { navigateTo } = useApp()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const openItems = items.filter((i) => !["Completed", "Closed"].includes(i.status))
-  const highPriorityItems = openItems.filter((i) => i.priority === "Urgent")
-  const requestsNeedingReview = requests.filter((r) => r.status === "needs_review")
-  const activeWorkOrders = workOrders?.filter((wo) => wo.status === "open" || wo.status === "in_progress")?.length ?? 0
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const res = await fetch("/api/dashboard")
+        if (!res.ok) {
+          throw new Error(res.status === 401 ? "Unauthorized" : "Failed to load")
+        }
+        const json: DashboardData = await res.json()
+        if (!cancelled) setData(json)
+      } catch (e) {
+        console.error(e)
+        if (!cancelled) setLoadError("Could not load dashboard.")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  const kpis = [
-    {
-      label: "Open Items",
-      value: openItems.length,
-      icon: ClipboardList,
-    },
-    {
-      label: "High Priority Items",
-      value: highPriorityItems.length,
-      icon: AlertTriangle,
-    },
-    {
-      label: "Requests Needing Review",
-      value: requestsNeedingReview.length,
-      icon: MessageSquareText,
-    },
-    {
-      label: "Active Work Orders",
-      value: activeWorkOrders,
-      icon: Wrench,
-    },
-  ]
+  const stats = data?.stats
+  const needsReview = data?.needsReview
+  const openByProject = data?.openItemsByProject ?? []
 
   return (
     <div className="min-h-full bg-muted/40">
-      <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
-        {/* Page Header */}
+      <div className="mx-auto max-w-7xl px-6 py-6 space-y-8">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Overview of projects and outstanding items
+          <p className="text-sm text-muted-foreground">Your morning briefing</p>
+        </div>
+
+        {loadError && (
+          <p className="text-sm text-destructive" role="alert">
+            {loadError}
           </p>
+        )}
+
+        {/* Section 1 — Stat cards */}
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => navigateTo({ type: "requests" })}
+            className="text-left rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <p className="text-xs font-medium text-muted-foreground">
+              Requests Needing Review
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+              {loading ? "—" : (stats?.requestsNeedingReview ?? 0)}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigateTo({ type: "work-orders" })}
+            className="text-left rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <p className="text-xs font-medium text-muted-foreground">
+              Active Work Orders
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+              {loading ? "—" : (stats?.activeWorkOrders ?? 0)}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigateTo({ type: "items" })}
+            className="text-left rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <p className="text-xs font-medium text-muted-foreground">Open Items</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+              {loading ? "—" : (stats?.openItems ?? 0)}
+            </p>
+          </button>
         </div>
 
-        {/* KPI Summary Cards */}
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          {kpis.map((kpi) => (
-            <Card key={kpi.label} className="bg-white transition-shadow hover:shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <kpi.icon className="size-4" />
-                  {kpi.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <p className="text-2xl font-semibold text-foreground">{kpi.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Open Items Table Card */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-lg font-medium text-foreground">Open Items</CardTitle>
-            <CardAction>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="size-4" />
-                Filter
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {openItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <ClipboardList className="mb-3 size-10 text-muted-foreground/40" />
-                <p className="text-sm font-medium text-muted-foreground">No open items</p>
-                <p className="text-xs text-muted-foreground">
-                  All items have been completed or closed.
+        {/* Section 2 — Needs attention */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Needs attention</h2>
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">
+                Requests needing review
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 pt-0">
+              {loading ? (
+                <p className="text-sm text-muted-foreground py-4">Loading…</p>
+              ) : (needsReview?.total ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  You&apos;re all caught up
                 </p>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableHead className="px-4 py-2 text-xs font-medium">Project</TableHead>
-                      <TableHead className="px-4 py-2 text-xs font-medium">Unit</TableHead>
-                      <TableHead className="px-4 py-2 text-xs font-medium">Title</TableHead>
-                      <TableHead className="px-4 py-2 text-xs font-medium">Trade</TableHead>
-                      <TableHead className="px-4 py-2 text-xs font-medium">Priority</TableHead>
-                      <TableHead className="px-4 py-2 text-xs font-medium">Status</TableHead>
-                      <TableHead className="px-4 py-2 text-xs font-medium">Updated</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {openItems.map((item) => {
-                      const project = projects.find((p) => p.id === item.projectId)
-                      const unit = units.find((u) => u.id === item.unitId)
-                      return (
-                        <TableRow
-                          key={item.id}
-                          className="cursor-pointer hover:bg-muted/30"
-                          onClick={() => navigateTo({ type: "unit-detail", unitId: item.unitId })}
+              ) : (
+                <>
+                  <ul className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                    {needsReview?.rows.map((row) => (
+                      <li key={row.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigateTo({
+                              type: "request-review",
+                              requestId: row.id,
+                            })
+                          }
+                          className="flex w-full flex-col gap-1 px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                         >
-                          <TableCell className="px-4 py-2 text-sm text-foreground">
-                            {project?.name ?? "Unknown"}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-sm text-muted-foreground">
-                            {unit ? `Unit ${unit.unitNumber}` : "--"}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-sm font-medium text-foreground max-w-[200px] truncate">
-                            {item.title}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-sm text-foreground">
-                            {item.trade}
-                          </TableCell>
-                          <TableCell className="px-4 py-2">
-                            <Badge variant="outline" className={getPriorityStyle(item.priority)}>
-                              {item.priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="px-4 py-2">
-                            <Badge variant="outline" className={getStatusStyle(item.status)}>
-                              {item.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-sm text-muted-foreground whitespace-nowrap">
-                            {format(new Date(item.updatedAt), "MMM d")}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="font-medium text-foreground">
+                              {row.projectName ?? "Unassigned"}
+                            </span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDistanceToNow(new Date(row.receivedAt), {
+                                addSuffix: true,
+                              })}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {row.fromName} · {row.fromEmail}
+                          </span>
+                          <span className="text-foreground line-clamp-2">
+                            {row.subject}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {(needsReview?.total ?? 0) > 5 && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 text-sm"
+                      onClick={() => navigateTo({ type: "requests" })}
+                    >
+                      View all
+                    </Button>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Section 3 — Open items by project */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">
+            Open items by project
+          </h2>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : openByProject.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              No open items across any projects
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {openByProject.map((p) => (
+                <Card key={p.projectId} className="bg-card border-border">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium leading-snug">
+                      {p.projectName}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-0">
+                    <p className="text-2xl font-semibold tabular-nums text-foreground">
+                      {p.openTotal}{" "}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        open
+                      </span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge
+                        variant="outline"
+                        className="bg-muted/50 text-foreground border-border"
+                      >
+                        New · {p.newCount}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-200 dark:border-yellow-800"
+                      >
+                        In Progress · {p.inProgressCount}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )

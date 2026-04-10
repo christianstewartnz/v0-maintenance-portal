@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -16,7 +15,6 @@ import { useApp } from "@/lib/app-context"
 import { supabase } from "@/lib/supabaseClient"
 
 export function AppHeader() {
-  const router = useRouter()
   const { currentPage } = useApp()
 
   const headerTitle =
@@ -52,8 +50,7 @@ export function AppHeader() {
           <DropdownMenuItem
             onClick={async () => {
               await supabase.auth.signOut()
-              router.push("/login")
-              router.refresh()
+              window.location.assign("/login")
             }}
           >
             <LogOut className="mr-2 size-4" />
