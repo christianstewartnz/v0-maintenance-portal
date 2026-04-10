@@ -11,6 +11,7 @@ export type Page =
   | { type: "requests" }
   | { type: "request-review"; requestId: string }
   | { type: "items"; filterUnitId?: string }
+  | { type: "item-detail"; itemId: string }
   | { type: "work-orders" }
   | { type: "work-order-detail"; workOrderId: string }
   | { type: "contractors" }
@@ -33,6 +34,9 @@ export interface CreateUnitPayload {
   projectId: string
   unitNumber: string
   address: string
+  ownerName?: string
+  ownerEmail?: string
+  ownerPhone?: string
 }
 
 export interface ItemFilters {
@@ -96,6 +100,7 @@ interface AppContextValue {
   archiveProject: (projectId: string, archive: boolean) => Promise<void>
   archiveUnit: (unitId: string, archive: boolean) => Promise<void>
   updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
+  updateItemNotes: (itemId: string, notes: string | null) => Promise<void>
   contractors: Contractor[]
   workOrders: WorkOrder[]
   fetchContractors: (activeOnly?: boolean) => Promise<void>
@@ -336,9 +341,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const processRequest = useCallback(
     async (requestId: string, unitId: string, drafts: DraftItem[]) => {
-      const draftPayload = drafts.map(({ title, description, trade, priority }) => ({
+      const draftPayload = drafts.map(({ title, description, otherNotes, trade, priority }) => ({
         title,
         description,
+        otherNotes: otherNotes ?? null,
         trade,
         priority,
       }))
@@ -431,6 +437,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || "Failed to update item status")
+      }
+      const updated: Item = await res.json()
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? updated : i))
+      )
+    },
+    []
+  )
+
+  const updateItemNotes = useCallback(
+    async (itemId: string, notes: string | null) => {
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otherNotes: notes }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update item notes")
       }
       const updated: Item = await res.json()
       setItems((prev) =>
@@ -588,6 +613,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         archiveProject,
         archiveUnit,
         updateItemStatus,
+        updateItemNotes,
         contractors,
         workOrders,
         fetchContractors,

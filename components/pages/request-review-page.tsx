@@ -76,6 +76,7 @@ export function RequestReviewPage() {
       id: "draft_1",
       title: "",
       description: "",
+      otherNotes: null,
       trade: "General",
       priority: "Normal",
     },
@@ -107,6 +108,7 @@ export function RequestReviewPage() {
         id: `draft_${Date.now()}`,
         title: "",
         description: "",
+        otherNotes: null,
         trade: "General",
         priority: "Normal",
       },
@@ -117,7 +119,7 @@ export function RequestReviewPage() {
     setDraftItems((prev) => prev.filter((d) => d.id !== id))
   }
 
-  function updateDraftItem(id: string, field: keyof DraftItem, value: string) {
+  function updateDraftItem(id: string, field: keyof DraftItem, value: string | null) {
     setDraftItems((prev) =>
       prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
     )
@@ -139,6 +141,7 @@ export function RequestReviewPage() {
             id: `draft_ai_${Date.now()}_${i}`,
             title: item.title,
             description: item.description,
+            otherNotes: item.otherNotes ?? null,
             trade: item.trade,
             priority: item.priority,
           }))
@@ -487,6 +490,17 @@ export function RequestReviewPage() {
                           value={draft.description}
                           onChange={(e) => updateDraftItem(draft.id, "description", e.target.value)}
                           placeholder="Item description..."
+                          rows={2}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs">Other Notes</Label>
+                        <Textarea
+                          value={draft.otherNotes ?? ""}
+                          onChange={(e) =>
+                            updateDraftItem(draft.id, "otherNotes", e.target.value)
+                          }
+                          placeholder="Access instructions, tenant contacts, preferred times, etc."
                           rows={2}
                         />
                       </div>

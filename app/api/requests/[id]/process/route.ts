@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeItems } from "@/lib/normalize";
+import type { Trade, Priority } from "@prisma/client";
+
+function extractPhone(text: string): string | null {
+  const match = text.match(/(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
+  return match ? match[0].trim() : null;
+}
 
 const VALID_TRADES = new Set([
   "Plumbing",
@@ -84,17 +90,43 @@ export async function POST(
   }
 
   const prismaItems = items.map(
-    (item: { title: string; description?: string; trade: string; priority: string }) => ({
+    (item: { title: string; description?: string; otherNotes?: string | null; trade: string; priority: string }) => ({
       id: crypto.randomUUID(),
       projectId: unit.projectId,
       requestId: id,
       unitId: unit.id,
       title: item.title.trim(),
       description: item.description?.trim() ?? "",
-      trade: item.trade,
-      priority: item.priority,
+      otherNotes: item.otherNotes?.trim() || null,
+      trade: item.trade as Trade,
+      priority: item.priority as Priority,
     })
   );
+
+  // Build owner field updates for any null fields on the unit
+  const unitOwnerUpdate: { ownerName?: string; ownerEmail?: string; ownerPhone?: string } = {};
+  const addedFields: string[] = [];
+
+  if (!unit.ownerName && maintenanceRequest.fromName) {
+    unitOwnerUpdate.ownerName = maintenanceRequest.fromName;
+    addedFields.push(`name: ${maintenanceRequest.fromName}`);
+  }
+  if (!unit.ownerEmail && maintenanceRequest.fromEmail) {
+    unitOwnerUpdate.ownerEmail = maintenanceRequest.fromEmail;
+    addedFields.push(`email: ${maintenanceRequest.fromEmail}`);
+  }
+  if (!unit.ownerPhone) {
+    const detectedPhone = extractPhone(maintenanceRequest.bodyRaw);
+    if (detectedPhone) {
+      unitOwnerUpdate.ownerPhone = detectedPhone;
+      addedFields.push(`phone: ${detectedPhone}`);
+    }
+  }
+
+  const ownerActivityMessage =
+    addedFields.length > 0
+      ? `Owner contact details automatically added from inbound request: ${addedFields.join(", ")}`
+      : null;
 
   await prisma.$transaction(async (tx) => {
     await tx.maintenanceRequest.update({
@@ -106,6 +138,23 @@ export async function POST(
     });
 
     await tx.item.createMany({ data: prismaItems });
+
+    if (Object.keys(unitOwnerUpdate).length > 0) {
+      await tx.unit.update({
+        where: { id: unit.id },
+        data: unitOwnerUpdate,
+      });
+    }
+
+    if (ownerActivityMessage) {
+      await tx.itemActivity.createMany({
+        data: prismaItems.map((item) => ({
+          id: crypto.randomUUID(),
+          itemId: item.id,
+          message: ownerActivityMessage,
+        })),
+      });
+    }
   });
 
   const [updatedRequest, allItems] = await Promise.all([

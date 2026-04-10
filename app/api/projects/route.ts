@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
 
     const projects = await prisma.project.findMany({
-      where: includeArchived ? {} : { archivedAt: null },
+      where: {
+        userId: user.id,
+        ...(includeArchived ? {} : { archivedAt: null }),
+      },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(projects);
@@ -20,6 +34,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json();
   const { name, address, description } = body;
 
@@ -33,6 +57,7 @@ export async function POST(req: NextRequest) {
   const created = await prisma.project.create({
     data: {
       id: crypto.randomUUID(),
+      userId: user.id,
       name: name.trim(),
       address: typeof address === "string" ? address.trim() : "",
       description: typeof description === "string" ? description.trim() : "",

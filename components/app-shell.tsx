@@ -11,6 +11,7 @@ import { UnitDetailPage } from "@/components/pages/unit-detail-page"
 import { RequestsListPage } from "@/components/pages/requests-list-page"
 import { RequestReviewPage } from "@/components/pages/request-review-page"
 import { ItemsListPage } from "@/components/pages/items-list-page"
+import { ItemDetailPage } from "@/components/pages/item-detail-page"
 import { WorkOrdersListPage } from "@/components/pages/work-orders-list-page"
 import { WorkOrderDetailPage } from "@/components/pages/work-order-detail-page"
 import { ContractorsListPage } from "@/components/pages/contractors-list-page"
@@ -45,6 +46,8 @@ export function AppShell() {
         return <RequestReviewPage />
       case "items":
         return <ItemsListPage />
+      case "item-detail":
+        return <ItemDetailPage />
       case "work-orders":
         return <WorkOrdersListPage />
       case "work-order-detail":

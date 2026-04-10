@@ -23,7 +23,8 @@ export function generateWorkOrderEmail(data: WorkOrderEmailData): EmailContent {
       const item = wi.item;
       if (!item) return `- Item ${wi.itemId}`;
       const unit = item.unit ? `Unit ${item.unit.unitNumber}` : "Unknown Unit";
-      return `- [${unit}] ${item.title}: ${item.description}`;
+      const notes = item.otherNotes ? `\n  Other Notes: ${item.otherNotes}` : "";
+      return `- [${unit}] ${item.title}: ${item.description}${notes}`;
     })
     .join("\n");
 
@@ -58,7 +59,10 @@ export function generateWorkOrderEmail(data: WorkOrderEmailData): EmailContent {
             const item = wi.item;
             if (!item) return `<li>Item ${wi.itemId}</li>`;
             const unit = item.unit ? `Unit ${item.unit.unitNumber}` : "Unknown Unit";
-            return `<li><strong>[${unit}]</strong> ${item.title}: ${item.description}</li>`;
+            const notesHtml = item.otherNotes
+              ? `<p style="margin: 4px 0 0; font-size: 13px;"><strong>Other Notes:</strong> ${item.otherNotes}</p>`
+              : "";
+            return `<li><strong>[${unit}]</strong> ${item.title}: ${item.description}${notesHtml}</li>`;
           })
           .join("")}
       </ul>

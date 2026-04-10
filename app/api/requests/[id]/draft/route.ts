@@ -26,6 +26,12 @@ const draftSchema = z.object({
           .describe(
             "Detailed description of the issue and what needs to be done"
           ),
+        otherNotes: z
+          .string()
+          .nullable()
+          .describe(
+            "Any context that is NOT part of the maintenance issue itself: access instructions, tenant/property manager contacts, preferred times, special instructions (e.g. 'contact tenant Sarah on 021 123 456 before attending', 'do not attend before 9am'). Null if none."
+          ),
         trade: z.enum([
           "Plumbing",
           "Electrical",
@@ -93,7 +99,11 @@ Rules:
 - If the email mentions a unit number or address that matches one from the provided list, set detectedUnitId to that unit's id. When a unit is detected, also set detectedProjectId to the unit's projectId.
 - If no project can be confidently matched, set detectedProjectId to null.
 - If no unit can be confidently matched, set detectedUnitId to null.
-- Only use IDs from the provided lists. Never fabricate an ID.`,
+- Only use IDs from the provided lists. Never fabricate an ID.
+- Separate email content into two categories:
+  1. Maintenance items — the actual defects or issues to be fixed (title, description, trade, priority).
+  2. Other notes — anything that is NOT part of the maintenance issue itself but is relevant context: access instructions, tenant contacts, property manager contacts, preferred times, special instructions (e.g. "contact my tenant Sarah on 021 123 456 before attending", "do not attend before 9am", "contact my property manager for access").
+- Set otherNotes on each item to the relevant context notes. If the same note applies to all items, copy it to all of them. If no other notes exist, set otherNotes to null.`,
     prompt: `Maintenance request:
 From: ${maintenanceRequest.fromName} <${maintenanceRequest.fromEmail}>
 Subject: ${maintenanceRequest.subject}

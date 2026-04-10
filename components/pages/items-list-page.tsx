@@ -298,7 +298,7 @@ export function ItemsListPage() {
                         <TableRow
                           key={item.id}
                           className="cursor-pointer hover:bg-accent/50"
-                          onClick={() => navigateTo({ type: "unit-detail", unitId: item.unitId })}
+                          onClick={() => navigateTo({ type: "item-detail", itemId: item.id })}
                         >
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
@@ -397,7 +397,7 @@ export function ItemsListPage() {
                       <Card
                         key={item.id}
                         className="cursor-pointer shadow-sm transition-shadow hover:shadow-md"
-                        onClick={() => navigateTo({ type: "unit-detail", unitId: item.unitId })}
+                        onClick={() => navigateTo({ type: "item-detail", itemId: item.id })}
                       >
                         <CardHeader className="p-3 pb-1">
                           <CardTitle className="text-xs font-semibold leading-snug">
