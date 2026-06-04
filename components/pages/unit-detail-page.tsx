@@ -1,9 +1,12 @@
 "use client"
 
-import { ClipboardList, AlertTriangle, Eye, XCircle } from "lucide-react"
+import { useState } from "react"
+import { ClipboardList, AlertTriangle, Eye, XCircle, Pencil } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Breadcrumb,
@@ -32,6 +35,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useApp } from "@/lib/app-context"
 import { format } from "date-fns"
 
@@ -66,13 +76,36 @@ function getStatusStyle(status: string) {
 }
 
 export function UnitDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units, updateItemStatus } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, updateItemStatus, updateUnit } = useApp()
 
   const unitId = currentPage.type === "unit-detail" ? currentPage.unitId : null
   const unit = unitId ? units.find((u) => u.id === unitId) : null
   const project = unit ? projects.find((p) => p.id === unit.projectId) : null
 
+  const [editOwnerOpen, setEditOwnerOpen] = useState(false)
+  const [ownerName, setOwnerName] = useState("")
+  const [ownerEmail, setOwnerEmail] = useState("")
+  const [ownerPhone, setOwnerPhone] = useState("")
+  const [saving, setSaving] = useState(false)
+
   if (!unit || !project) return null
+
+  function openEditOwner() {
+    setOwnerName(unit!.ownerName ?? "")
+    setOwnerEmail(unit!.ownerEmail ?? "")
+    setOwnerPhone(unit!.ownerPhone ?? "")
+    setEditOwnerOpen(true)
+  }
+
+  async function handleSaveOwner() {
+    setSaving(true)
+    try {
+      await updateUnit({ id: unit!.id, ownerName, ownerEmail, ownerPhone })
+      setEditOwnerOpen(false)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const unitItems = items.filter((i) => i.unitId === unit.id)
   const openItems = unitItems.filter((i) => !["Completed", "Closed"].includes(i.status))
@@ -211,7 +244,13 @@ export function UnitDetailPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Owner Contact Details</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold">Owner Contact Details</CardTitle>
+                <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={openEditOwner}>
+                  <Pencil className="size-3" />
+                  Edit
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -238,6 +277,51 @@ export function UnitDetailPage() {
               </dl>
             </CardContent>
           </Card>
+
+          <Dialog open={editOwnerOpen} onOpenChange={setEditOwnerOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Owner Contact Details</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="owner-name">Name</Label>
+                  <Input
+                    id="owner-name"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="Owner name"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="owner-email">Email</Label>
+                  <Input
+                    id="owner-email"
+                    type="email"
+                    value={ownerEmail}
+                    onChange={(e) => setOwnerEmail(e.target.value)}
+                    placeholder="owner@example.com"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="owner-phone">Phone</Label>
+                  <Input
+                    id="owner-phone"
+                    type="tel"
+                    value={ownerPhone}
+                    onChange={(e) => setOwnerPhone(e.target.value)}
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditOwnerOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveOwner} disabled={saving}>
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Tabs defaultValue="open" className="flex flex-col gap-4">

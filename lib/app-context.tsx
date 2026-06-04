@@ -39,6 +39,13 @@ export interface CreateUnitPayload {
   ownerPhone?: string
 }
 
+export interface UpdateUnitPayload {
+  id: string
+  ownerName?: string
+  ownerEmail?: string
+  ownerPhone?: string
+}
+
 export interface ItemFilters {
   status?: string
   trade?: string
@@ -99,6 +106,7 @@ interface AppContextValue {
   archiveRequest: (requestId: string, archive: boolean) => Promise<void>
   archiveProject: (projectId: string, archive: boolean) => Promise<void>
   archiveUnit: (unitId: string, archive: boolean) => Promise<void>
+  updateUnit: (payload: UpdateUnitPayload) => Promise<Unit>
   updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
   updateItemNotes: (itemId: string, notes: string | null) => Promise<void>
   contractors: Contractor[]
@@ -427,6 +435,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   )
 
+  const updateUnit = useCallback(
+    async (payload: UpdateUnitPayload): Promise<Unit> => {
+      const { id, ...data } = payload
+      const res = await fetch(`/api/units/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update unit")
+      }
+      const updated: Unit = await res.json()
+      setUnits((prev) =>
+        prev.map((u) => (u.id === id ? updated : u))
+      )
+      return updated
+    },
+    [],
+  )
+
   const updateItemStatus = useCallback(
     async (itemId: string, status: ItemStatus) => {
       const res = await fetch(`/api/items/${itemId}/status`, {
@@ -612,6 +641,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         archiveRequest,
         archiveProject,
         archiveUnit,
+        updateUnit,
         updateItemStatus,
         updateItemNotes,
         contractors,

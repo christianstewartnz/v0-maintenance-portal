@@ -34,35 +34,40 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { name, address, description } = body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json(
+        { error: "name is required" },
+        { status: 400 },
+      );
+    }
+
+    const created = await prisma.project.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        name: name.trim(),
+        address: typeof address === "string" ? address.trim() : "",
+        description: typeof description === "string" ? description.trim() : "",
+      },
+    });
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    console.error("Failed to create project:", error);
+    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
   }
-
-  const body = await req.json();
-  const { name, address, description } = body;
-
-  if (!name || typeof name !== "string" || !name.trim()) {
-    return NextResponse.json(
-      { error: "name is required" },
-      { status: 400 },
-    );
-  }
-
-  const created = await prisma.project.create({
-    data: {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      name: name.trim(),
-      address: typeof address === "string" ? address.trim() : "",
-      description: typeof description === "string" ? description.trim() : "",
-    },
-  });
-
-  return NextResponse.json(created, { status: 201 });
 }
