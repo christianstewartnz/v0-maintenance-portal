@@ -80,9 +80,14 @@ export function generateWorkOrderEmail(data: WorkOrderEmailData): EmailContent {
 }
 
 export async function sendWorkOrderEmail(emailContent: EmailContent): Promise<void> {
-  // Placeholder: log to console until a real email provider is wired up
-  console.log("[Work Order Email] Would send email:");
-  console.log(`  To: ${emailContent.to}`);
-  console.log(`  Subject: ${emailContent.subject}`);
-  console.log(`  Text:\n${emailContent.text}`);
+  const { Resend } = await import("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  // TODO: update from address to your verified sending domain
+  await resend.emails.send({
+    from: "noreply@yourdomain.com",
+    to: emailContent.to,
+    subject: emailContent.subject,
+    html: emailContent.html,
+    text: emailContent.text,
+  });
 }

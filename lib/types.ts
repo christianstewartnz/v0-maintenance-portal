@@ -71,13 +71,13 @@ export type ItemStatus =
   | "Assigned"
   | "In Progress"
   | "Marked Complete - Needs Review"
-  | "Completed (Legacy)"
+  | "Completed"
   | "Closed"
 
 export interface Item {
   id: string
   projectId: string
-  requestId: string
+  requestId: string | null
   unitId: string
   title: string
   description: string
@@ -92,7 +92,7 @@ export interface Item {
   request?: Pick<
     MaintenanceRequest,
     "id" | "subject" | "fromName" | "fromEmail" | "fromPhone"
-  >
+  > | null
   workOrderItems?: WorkOrderItem[]
   activities?: ItemActivity[]
 }

@@ -65,12 +65,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { useApp } from "@/lib/app-context"
 import type { ItemStatus, Trade, RequestStatus } from "@/lib/types"
 import { format } from "date-fns"
 
 const ALL_STATUSES: ItemStatus[] = ["New", "Assigned", "In Progress", "Completed", "Closed"]
 const ALL_TRADES: Trade[] = ["Plumbing", "Electrical", "Carpentry", "Painting", "Appliance", "General", "Other"]
+const ALL_PRIORITIES = ["Low", "Normal", "Urgent"] as const
 
 function getPriorityStyle(priority: string) {
   switch (priority) {
@@ -103,7 +105,7 @@ function getStatusStyle(status: string) {
 }
 
 export function ProjectDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits, createUnit, uploadUnitsCSV } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits, createUnit, uploadUnitsCSV, createItem, fetchItems } = useApp()
 
   const projectId = currentPage.type === "project-detail" ? currentPage.projectId : null
   const project = projectId ? projects.find((p) => p.id === projectId) : null
@@ -123,6 +125,16 @@ export function ProjectDetailPage() {
   const [newOwnerEmail, setNewOwnerEmail] = useState("")
   const [newOwnerPhone, setNewOwnerPhone] = useState("")
   const [creatingUnit, setCreatingUnit] = useState(false)
+
+  const [addItemOpen, setAddItemOpen] = useState(false)
+  const [itemUnitId, setItemUnitId] = useState("")
+  const [itemTitle, setItemTitle] = useState("")
+  const [itemDescription, setItemDescription] = useState("")
+  const [itemTrade, setItemTrade] = useState("")
+  const [itemPriority, setItemPriority] = useState("Normal")
+  const [itemOtherNotes, setItemOtherNotes] = useState("")
+  const [submittingItem, setSubmittingItem] = useState(false)
+  const [itemError, setItemError] = useState<string | null>(null)
 
   const [csvDialogOpen, setCsvDialogOpen] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -202,6 +214,39 @@ export function ProjectDetailPage() {
       setUploadResult({ created: 0, error: err instanceof Error ? err.message : "Upload failed" })
     } finally {
       setUploading(false)
+    }
+  }
+
+  const activeUnits = useMemo(
+    () => units.filter((u) => u.projectId === projectId && !u.archivedAt),
+    [units, projectId],
+  )
+
+  async function handleAddItem() {
+    if (!itemUnitId || !itemTitle.trim() || !itemTrade || !itemPriority) return
+    setSubmittingItem(true)
+    setItemError(null)
+    try {
+      await createItem({
+        unitId: itemUnitId,
+        title: itemTitle.trim(),
+        description: itemDescription,
+        trade: itemTrade,
+        priority: itemPriority,
+        otherNotes: itemOtherNotes || undefined,
+      })
+      if (projectId) await fetchItems(projectId)
+      setAddItemOpen(false)
+      setItemUnitId("")
+      setItemTitle("")
+      setItemDescription("")
+      setItemTrade("")
+      setItemPriority("Normal")
+      setItemOtherNotes("")
+    } catch (err) {
+      setItemError(err instanceof Error ? err.message : "Failed to create item")
+    } finally {
+      setSubmittingItem(false)
     }
   }
 
@@ -325,6 +370,96 @@ export function ProjectDetailPage() {
           </TabsList>
 
           <TabsContent value="items" className="mt-0">
+            <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setItemError(null) }}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Item</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-4 py-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="proj-item-unit">Unit <span className="text-destructive">*</span></Label>
+                    <Select value={itemUnitId} onValueChange={setItemUnitId}>
+                      <SelectTrigger id="proj-item-unit">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeUnits.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>Unit {u.unitNumber} — {u.address}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="proj-item-title">Title <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="proj-item-title"
+                      value={itemTitle}
+                      onChange={(e) => setItemTitle(e.target.value)}
+                      placeholder="e.g. Leaking tap in bathroom"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="proj-item-description">Description</Label>
+                    <Textarea
+                      id="proj-item-description"
+                      value={itemDescription}
+                      onChange={(e) => setItemDescription(e.target.value)}
+                      placeholder="Describe the issue..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="proj-item-trade">Trade <span className="text-destructive">*</span></Label>
+                    <Select value={itemTrade} onValueChange={setItemTrade}>
+                      <SelectTrigger id="proj-item-trade">
+                        <SelectValue placeholder="Select trade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_TRADES.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="proj-item-priority">Priority <span className="text-destructive">*</span></Label>
+                    <Select value={itemPriority} onValueChange={setItemPriority}>
+                      <SelectTrigger id="proj-item-priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_PRIORITIES.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="proj-item-other-notes">Access notes / other context</Label>
+                    <Textarea
+                      id="proj-item-other-notes"
+                      value={itemOtherNotes}
+                      onChange={(e) => setItemOtherNotes(e.target.value)}
+                      placeholder="Any access instructions or additional context..."
+                      rows={2}
+                    />
+                  </div>
+                  {itemError && (
+                    <p className="text-sm text-destructive">{itemError}</p>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setAddItemOpen(false)}>Cancel</Button>
+                  <Button
+                    onClick={handleAddItem}
+                    disabled={!itemUnitId || !itemTitle.trim() || !itemTrade || submittingItem}
+                  >
+                    {submittingItem ? "Creating…" : "Create Item"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Card>
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -332,6 +467,10 @@ export function ProjectDetailPage() {
                     Open Items ({filteredItems.length})
                   </CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" onClick={() => { setAddItemOpen(true); setItemError(null) }}>
+                      <Plus className="mr-1.5 size-4" />
+                      Add Item
+                    </Button>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="w-36 text-xs">
                         <SelectValue placeholder="Status" />

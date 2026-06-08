@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeWorkOrder } from "@/lib/normalize";
 import { normalizeItems } from "@/lib/normalize";
+import { createClient } from "@/lib/supabaseServer";
 
 export async function GET(
   _req: NextRequest,
@@ -10,6 +11,12 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const workOrder = await prisma.workOrder.findUnique({
       where: { id },
       include: {

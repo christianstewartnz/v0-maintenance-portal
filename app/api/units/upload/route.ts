@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabaseServer";
 
 interface CsvRow {
   project: string;
@@ -98,6 +99,12 @@ function parseCsv(
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const projectId = req.nextUrl.searchParams.get("projectId");
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

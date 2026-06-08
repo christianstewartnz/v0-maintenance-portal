@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeWorkOrder } from "@/lib/normalize";
+import { createClient } from "@/lib/supabaseServer";
 
 export async function POST(
   _req: NextRequest,
@@ -9,6 +10,12 @@ export async function POST(
   const { id } = await params;
 
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const workOrder = await prisma.workOrder.findUnique({
       where: { id },
     });

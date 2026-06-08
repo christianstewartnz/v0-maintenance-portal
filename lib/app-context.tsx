@@ -70,6 +70,15 @@ export interface UpdateContractorPayload {
   trade?: string
 }
 
+export interface CreateItemPayload {
+  unitId: string
+  title: string
+  description?: string
+  trade: string
+  priority: string
+  otherNotes?: string
+}
+
 export interface CreateWorkOrderPayload {
   contractorId: string
   itemIds: string[]
@@ -107,6 +116,7 @@ interface AppContextValue {
   archiveProject: (projectId: string, archive: boolean) => Promise<void>
   archiveUnit: (unitId: string, archive: boolean) => Promise<void>
   updateUnit: (payload: UpdateUnitPayload) => Promise<Unit>
+  createItem: (payload: CreateItemPayload) => Promise<Item>
   updateItemStatus: (itemId: string, status: ItemStatus) => Promise<void>
   updateItemNotes: (itemId: string, notes: string | null) => Promise<void>
   contractors: Contractor[]
@@ -456,6 +466,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   )
 
+  const createItem = useCallback(
+    async (payload: CreateItemPayload): Promise<Item> => {
+      const res = await fetch("/api/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create item")
+      }
+      const created: Item = await res.json()
+      setItems((prev) => [created, ...prev])
+      return created
+    },
+    [],
+  )
+
   const updateItemStatus = useCallback(
     async (itemId: string, status: ItemStatus) => {
       const res = await fetch(`/api/items/${itemId}/status`, {
@@ -642,6 +670,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         archiveProject,
         archiveUnit,
         updateUnit,
+        createItem,
         updateItemStatus,
         updateItemNotes,
         contractors,

@@ -73,7 +73,7 @@ function getItemStatusStyle(status: string) {
       return "bg-warning/10 text-warning-foreground border-warning/20"
     case "Marked Complete - Needs Review":
       return "bg-amber-500/10 text-amber-600 border-amber-500/20"
-    case "Completed (Legacy)":
+    case "Completed":
       return "bg-success/10 text-success border-success/20"
     case "Closed":
       return "bg-muted text-muted-foreground border-border"

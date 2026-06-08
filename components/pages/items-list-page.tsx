@@ -38,7 +38,7 @@ import { useApp } from "@/lib/app-context"
 import type { ItemStatus, Trade } from "@/lib/types"
 import { format } from "date-fns"
 
-const ALL_STATUSES: ItemStatus[] = ["New", "Assigned", "In Progress", "Marked Complete - Needs Review", "Completed (Legacy)", "Closed"]
+const ALL_STATUSES: ItemStatus[] = ["New", "Assigned", "In Progress", "Marked Complete - Needs Review", "Completed", "Closed"]
 const ALL_TRADES: Trade[] = [
   "Plumbing",
   "Electrical",
@@ -72,7 +72,7 @@ function getStatusStyle(status: string) {
       return "bg-warning/10 text-warning-foreground border-warning/20"
     case "Marked Complete - Needs Review":
       return "bg-amber-500/10 text-amber-600 border-amber-500/20"
-    case "Completed (Legacy)":
+    case "Completed":
       return "bg-success/10 text-success border-success/20"
     case "Closed":
       return "bg-muted text-muted-foreground border-border"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeItems } from "@/lib/normalize";
+import { createClient } from "@/lib/supabaseServer";
 import type { Trade, Priority } from "@prisma/client";
 
 function extractPhone(text: string): string | null {
@@ -25,6 +26,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json();
   const { unitId, items } = body;
 

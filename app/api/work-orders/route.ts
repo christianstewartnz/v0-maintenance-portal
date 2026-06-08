@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeWorkOrders } from "@/lib/normalize";
+import { createClient } from "@/lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl;
-  const projectId = searchParams.get("projectId");
-  const contractorId = searchParams.get("contractorId");
-  const status = searchParams.get("status");
-
-  const where: Record<string, unknown> = {};
-  if (projectId) where.projectId = projectId;
-  if (contractorId) where.contractorId = contractorId;
-  if (status) where.status = status;
-
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = req.nextUrl;
+    const projectId = searchParams.get("projectId");
+    const contractorId = searchParams.get("contractorId");
+    const status = searchParams.get("status");
+
+    const where: Record<string, unknown> = {};
+    if (projectId) where.projectId = projectId;
+    if (contractorId) where.contractorId = contractorId;
+    if (status) where.status = status;
+
     const workOrders = await prisma.workOrder.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -32,6 +39,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { contractorId, itemIds, accessNotes, messageBody } = body;
 

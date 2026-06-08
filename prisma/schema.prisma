@@ -3,9 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 model Project {
@@ -119,7 +117,7 @@ enum WorkOrderStatus {
 model Item {
   id          String     @id
   projectId   String
-  requestId   String
+  requestId   String?
   unitId      String
   title       String
   description String
@@ -131,7 +129,7 @@ model Item {
   updatedAt   DateTime   @updatedAt
 
   project        Project            @relation(fields: [projectId], references: [id])
-  request        MaintenanceRequest @relation(fields: [requestId], references: [id])
+  request        MaintenanceRequest? @relation(fields: [requestId], references: [id])
   unit           Unit               @relation(fields: [unitId], references: [id])
   workOrderItems WorkOrderItem[]
   activities     ItemActivity[]

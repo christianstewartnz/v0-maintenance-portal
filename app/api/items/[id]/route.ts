@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeItems } from "@/lib/normalize";
+import { createClient } from "@/lib/supabaseServer";
 
 export async function GET(
   _req: NextRequest,
@@ -9,6 +10,12 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const item = await prisma.item.findUnique({
       where: { id },
       include: {
@@ -39,15 +46,21 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await req.json();
-
-  const { otherNotes } = body;
-
-  if (otherNotes !== undefined && otherNotes !== null && typeof otherNotes !== "string") {
-    return NextResponse.json({ error: "otherNotes must be a string or null" }, { status: 400 });
-  }
 
   try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { otherNotes } = body;
+
+    if (otherNotes !== undefined && otherNotes !== null && typeof otherNotes !== "string") {
+      return NextResponse.json({ error: "otherNotes must be a string or null" }, { status: 400 });
+    }
+
     const item = await prisma.item.update({
       where: { id },
       data: {

@@ -1,12 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { ClipboardList, AlertTriangle, Eye, XCircle, Pencil } from "lucide-react"
+import { ClipboardList, AlertTriangle, Eye, XCircle, Pencil, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Breadcrumb,
@@ -42,8 +49,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { useApp } from "@/lib/app-context"
 import { format } from "date-fns"
+
+const ALL_TRADES = ["Plumbing", "Electrical", "Carpentry", "Painting", "Appliance", "General", "Other"] as const
+const ALL_PRIORITIES = ["Low", "Normal", "Urgent"] as const
 
 function getPriorityStyle(priority: string) {
   switch (priority) {
@@ -76,7 +87,7 @@ function getStatusStyle(status: string) {
 }
 
 export function UnitDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units, updateItemStatus, updateUnit } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, updateItemStatus, updateUnit, createItem, fetchItems } = useApp()
 
   const unitId = currentPage.type === "unit-detail" ? currentPage.unitId : null
   const unit = unitId ? units.find((u) => u.id === unitId) : null
@@ -87,6 +98,15 @@ export function UnitDetailPage() {
   const [ownerEmail, setOwnerEmail] = useState("")
   const [ownerPhone, setOwnerPhone] = useState("")
   const [saving, setSaving] = useState(false)
+
+  const [addItemOpen, setAddItemOpen] = useState(false)
+  const [itemTitle, setItemTitle] = useState("")
+  const [itemDescription, setItemDescription] = useState("")
+  const [itemTrade, setItemTrade] = useState("")
+  const [itemPriority, setItemPriority] = useState("Normal")
+  const [itemOtherNotes, setItemOtherNotes] = useState("")
+  const [submittingItem, setSubmittingItem] = useState(false)
+  const [itemError, setItemError] = useState<string | null>(null)
 
   if (!unit || !project) return null
 
@@ -104,6 +124,33 @@ export function UnitDetailPage() {
       setEditOwnerOpen(false)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleAddItem() {
+    if (!itemTitle.trim() || !itemTrade || !itemPriority) return
+    setSubmittingItem(true)
+    setItemError(null)
+    try {
+      await createItem({
+        unitId: unit!.id,
+        title: itemTitle.trim(),
+        description: itemDescription,
+        trade: itemTrade,
+        priority: itemPriority,
+        otherNotes: itemOtherNotes || undefined,
+      })
+      await fetchItems(unit!.projectId)
+      setAddItemOpen(false)
+      setItemTitle("")
+      setItemDescription("")
+      setItemTrade("")
+      setItemPriority("Normal")
+      setItemOtherNotes("")
+    } catch (err) {
+      setItemError(err instanceof Error ? err.message : "Failed to create item")
+    } finally {
+      setSubmittingItem(false)
     }
   }
 
@@ -325,11 +372,94 @@ export function UnitDetailPage() {
         </div>
 
         <Tabs defaultValue="open" className="flex flex-col gap-4">
-          <TabsList className="w-fit">
-            <TabsTrigger value="open">Open Items ({openItems.length})</TabsTrigger>
-            <TabsTrigger value="all">All Items ({unitItems.length})</TabsTrigger>
-            <TabsTrigger value="requests">Requests ({relatedRequests.length})</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList className="w-fit">
+              <TabsTrigger value="open">Open Items ({openItems.length})</TabsTrigger>
+              <TabsTrigger value="all">All Items ({unitItems.length})</TabsTrigger>
+              <TabsTrigger value="requests">Requests ({relatedRequests.length})</TabsTrigger>
+            </TabsList>
+            <Button size="sm" onClick={() => { setAddItemOpen(true); setItemError(null) }}>
+              <Plus className="mr-1.5 size-4" />
+              Add Item
+            </Button>
+          </div>
+
+          <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setItemError(null) }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add Item</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="item-title">Title <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="item-title"
+                    value={itemTitle}
+                    onChange={(e) => setItemTitle(e.target.value)}
+                    placeholder="e.g. Leaking tap in bathroom"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="item-description">Description</Label>
+                  <Textarea
+                    id="item-description"
+                    value={itemDescription}
+                    onChange={(e) => setItemDescription(e.target.value)}
+                    placeholder="Describe the issue..."
+                    rows={3}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="item-trade">Trade <span className="text-destructive">*</span></Label>
+                  <Select value={itemTrade} onValueChange={setItemTrade}>
+                    <SelectTrigger id="item-trade">
+                      <SelectValue placeholder="Select trade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_TRADES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="item-priority">Priority <span className="text-destructive">*</span></Label>
+                  <Select value={itemPriority} onValueChange={setItemPriority}>
+                    <SelectTrigger id="item-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_PRIORITIES.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="item-other-notes">Access notes / other context</Label>
+                  <Textarea
+                    id="item-other-notes"
+                    value={itemOtherNotes}
+                    onChange={(e) => setItemOtherNotes(e.target.value)}
+                    placeholder="Any access instructions or additional context..."
+                    rows={2}
+                  />
+                </div>
+                {itemError && (
+                  <p className="text-sm text-destructive">{itemError}</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddItemOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={handleAddItem}
+                  disabled={!itemTitle.trim() || !itemTrade || submittingItem}
+                >
+                  {submittingItem ? "Creating…" : "Create Item"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <TabsContent value="open" className="mt-0">
             <Card>

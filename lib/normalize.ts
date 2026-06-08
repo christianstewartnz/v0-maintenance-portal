@@ -1,7 +1,7 @@
 const ITEM_STATUS_MAP: Record<string, string> = {
   InProgress: "In Progress",
   MarkedCompleteNeedsReview: "Marked Complete - Needs Review",
-  Completed: "Completed (Legacy)",
+  Completed: "Completed",
 };
 
 export function normalizeItems<T extends { status: string }>(items: T[]): T[] {
