@@ -41,6 +41,8 @@ export interface CreateUnitPayload {
 
 export interface UpdateUnitPayload {
   id: string
+  unitNumber?: string
+  address?: string
   ownerName?: string
   ownerEmail?: string
   ownerPhone?: string

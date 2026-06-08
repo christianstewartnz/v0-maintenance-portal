@@ -94,6 +94,8 @@ export function UnitDetailPage() {
   const project = unit ? projects.find((p) => p.id === unit.projectId) : null
 
   const [editOwnerOpen, setEditOwnerOpen] = useState(false)
+  const [editUnitNumber, setEditUnitNumber] = useState("")
+  const [editAddress, setEditAddress] = useState("")
   const [ownerName, setOwnerName] = useState("")
   const [ownerEmail, setOwnerEmail] = useState("")
   const [ownerPhone, setOwnerPhone] = useState("")
@@ -111,6 +113,8 @@ export function UnitDetailPage() {
   if (!unit || !project) return null
 
   function openEditOwner() {
+    setEditUnitNumber(unit!.unitNumber)
+    setEditAddress(unit!.address)
     setOwnerName(unit!.ownerName ?? "")
     setOwnerEmail(unit!.ownerEmail ?? "")
     setOwnerPhone(unit!.ownerPhone ?? "")
@@ -118,9 +122,10 @@ export function UnitDetailPage() {
   }
 
   async function handleSaveOwner() {
+    if (!editUnitNumber.trim() || !editAddress.trim()) return
     setSaving(true)
     try {
-      await updateUnit({ id: unit!.id, ownerName, ownerEmail, ownerPhone })
+      await updateUnit({ id: unit!.id, unitNumber: editUnitNumber.trim(), address: editAddress.trim(), ownerName, ownerEmail, ownerPhone })
       setEditOwnerOpen(false)
     } finally {
       setSaving(false)
@@ -328,42 +333,65 @@ export function UnitDetailPage() {
           <Dialog open={editOwnerOpen} onOpenChange={setEditOwnerOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Edit Owner Contact Details</DialogTitle>
+                <DialogTitle>Edit Unit Details</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="owner-name">Name</Label>
+                  <Label htmlFor="edit-unit-number">Unit Number <span className="text-destructive">*</span></Label>
                   <Input
-                    id="owner-name"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    placeholder="Owner name"
+                    id="edit-unit-number"
+                    value={editUnitNumber}
+                    onChange={(e) => setEditUnitNumber(e.target.value)}
+                    placeholder="e.g. 101"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="owner-email">Email</Label>
+                  <Label htmlFor="edit-address">Address <span className="text-destructive">*</span></Label>
                   <Input
-                    id="owner-email"
-                    type="email"
-                    value={ownerEmail}
-                    onChange={(e) => setOwnerEmail(e.target.value)}
-                    placeholder="owner@example.com"
+                    id="edit-address"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="e.g. 123 Main St"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="owner-phone">Phone</Label>
-                  <Input
-                    id="owner-phone"
-                    type="tel"
-                    value={ownerPhone}
-                    onChange={(e) => setOwnerPhone(e.target.value)}
-                    placeholder="+1 (555) 000-0000"
-                  />
+                <div className="border-t border-border pt-3">
+                  <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Owner Contact</p>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="owner-name">Name</Label>
+                      <Input
+                        id="owner-name"
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                        placeholder="Owner name"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="owner-email">Email</Label>
+                      <Input
+                        id="owner-email"
+                        type="email"
+                        value={ownerEmail}
+                        onChange={(e) => setOwnerEmail(e.target.value)}
+                        placeholder="owner@example.com"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="owner-phone">Phone</Label>
+                      <Input
+                        id="owner-phone"
+                        type="tel"
+                        value={ownerPhone}
+                        onChange={(e) => setOwnerPhone(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditOwnerOpen(false)}>Cancel</Button>
-                <Button onClick={handleSaveOwner} disabled={saving}>
+                <Button onClick={handleSaveOwner} disabled={saving || !editUnitNumber.trim() || !editAddress.trim()}>
                   {saving ? "Saving…" : "Save"}
                 </Button>
               </DialogFooter>

@@ -14,11 +14,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { ownerName, ownerEmail, ownerPhone } = await req.json();
+  const { unitNumber, address, ownerName, ownerEmail, ownerPhone } = await req.json();
 
   const unit = await prisma.unit.update({
     where: { id },
     data: {
+      ...(unitNumber !== undefined && { unitNumber }),
+      ...(address !== undefined && { address }),
       ownerName: ownerName || null,
       ownerEmail: ownerEmail || null,
       ownerPhone: ownerPhone || null,
