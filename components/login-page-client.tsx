@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { Analytics } from "@vercel/analytics/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +18,8 @@ import {
 
 export function LoginPageClient() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const resetSuccess = searchParams.get("reset") === "success"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -73,10 +76,23 @@ export function LoginPageClient() {
                   autoComplete="current-password"
                 />
               </div>
+              {resetSuccess && (
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  Password updated — please sign in with your new password.
+                </p>
+              )}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Signing in…" : "Sign in"}
               </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                <Link
+                  href="/forgot-password"
+                  className="underline underline-offset-4 hover:text-foreground"
+                >
+                  Forgot password?
+                </Link>
+              </p>
             </form>
           </CardContent>
         </Card>

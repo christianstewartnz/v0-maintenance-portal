@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 /** Paths that never require a Supabase session. */
 function isPublicPath(pathname: string): boolean {
   if (pathname === '/login' || pathname.startsWith('/login/')) return true
+  if (pathname === '/forgot-password') return true
+  if (pathname === '/reset-password') return true
   if (pathname.startsWith('/api/work-orders/access')) return true
   // Legacy shared links still issued by the app
   if (pathname.startsWith('/work-orders/access')) return true
