@@ -14,7 +14,7 @@ export async function GET(
       include: {
         workOrder: {
           include: {
-            project: { select: { id: true, name: true } },
+            project: { select: { id: true, name: true, developmentCompany: true } },
             contractor: true,
             items: {
               include: {

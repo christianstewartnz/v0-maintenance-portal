@@ -14,6 +14,8 @@ import {
   Download,
   Eye,
   Paperclip,
+  Pencil,
+  Building2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -105,7 +107,7 @@ function getStatusStyle(status: string) {
 }
 
 export function ProjectDetailPage() {
-  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits, createUnit, uploadUnitsCSV, createItem, fetchItems } = useApp()
+  const { currentPage, items, requests, navigateTo, projects, units, archiveProject, archiveUnit, fetchUnits, createUnit, uploadUnitsCSV, createItem, fetchItems, updateProject } = useApp()
 
   const projectId = currentPage.type === "project-detail" ? currentPage.projectId : null
   const project = projectId ? projects.find((p) => p.id === projectId) : null
@@ -135,6 +137,10 @@ export function ProjectDetailPage() {
   const [itemOtherNotes, setItemOtherNotes] = useState("")
   const [submittingItem, setSubmittingItem] = useState(false)
   const [itemError, setItemError] = useState<string | null>(null)
+
+  const [editProjectOpen, setEditProjectOpen] = useState(false)
+  const [editDevCompany, setEditDevCompany] = useState("")
+  const [savingProject, setSavingProject] = useState(false)
 
   const [csvDialogOpen, setCsvDialogOpen] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -250,6 +256,24 @@ export function ProjectDetailPage() {
     }
   }
 
+  const handleOpenEditProject = () => {
+    setEditDevCompany(project?.developmentCompany ?? "")
+    setEditProjectOpen(true)
+  }
+
+  const handleSaveProject = async () => {
+    if (!project) return
+    setSavingProject(true)
+    try {
+      await updateProject({ id: project.id, developmentCompany: editDevCompany })
+      setEditProjectOpen(false)
+    } catch (err) {
+      console.error("Failed to update project:", err)
+    } finally {
+      setSavingProject(false)
+    }
+  }
+
   if (!project || !projectId) return null
 
   const isArchived = !!project.archivedAt
@@ -309,8 +333,46 @@ export function ProjectDetailPage() {
           {isArchived && (
             <Badge variant="secondary" className="text-xs">Archived</Badge>
           )}
+          {project.developmentCompany && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Building2 className="size-3 shrink-0" />
+              {project.developmentCompany}
+            </span>
+          )}
         </div>
-        <AlertDialog>
+        <div className="flex items-center gap-2">
+          <Dialog open={editProjectOpen} onOpenChange={setEditProjectOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" onClick={handleOpenEditProject}>
+                <Pencil className="mr-1.5 size-3.5" />
+                Edit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Project</DialogTitle>
+                <DialogDescription>Update project details.</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="edit-dev-company">Development Company</Label>
+                  <Input
+                    id="edit-dev-company"
+                    value={editDevCompany}
+                    onChange={(e) => setEditDevCompany(e.target.value)}
+                    placeholder="e.g. Acme Developments Ltd"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditProjectOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveProject} disabled={savingProject}>
+                  {savingProject ? "Saving..." : "Save"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm">
               {isArchived ? (
@@ -339,6 +401,7 @@ export function ProjectDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-6">

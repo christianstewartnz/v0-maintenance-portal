@@ -28,6 +28,15 @@ export interface CreateProjectPayload {
   name: string
   address?: string
   description?: string
+  developmentCompany?: string
+}
+
+export interface UpdateProjectPayload {
+  id: string
+  name?: string
+  address?: string
+  description?: string
+  developmentCompany?: string
 }
 
 export interface CreateUnitPayload {
@@ -108,6 +117,7 @@ interface AppContextValue {
   fetchRequests: (projectId?: string | null, status?: string) => Promise<void>
   fetchItems: (projectId: string, filters?: ItemFilters) => Promise<void>
   createProject: (payload: CreateProjectPayload) => Promise<Project>
+  updateProject: (payload: UpdateProjectPayload) => Promise<Project>
   createUnit: (payload: CreateUnitPayload) => Promise<void>
   uploadUnitsCSV: (file: File, projectId?: string) => Promise<{ created: number; error?: string; rows?: { row: number; message: string }[] }>
   createRequest: (payload: CreateRequestPayload) => Promise<void>
@@ -260,6 +270,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return created
     },
     [fetchProjects],
+  )
+
+  const updateProject = useCallback(
+    async (payload: UpdateProjectPayload): Promise<Project> => {
+      const { id, ...data } = payload
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update project")
+      }
+      const updated: Project = await res.json()
+      setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)))
+      return updated
+    },
+    [],
   )
 
   const createUnit = useCallback(
@@ -662,6 +691,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRequests,
         fetchItems,
         createProject,
+        updateProject,
         createUnit,
         uploadUnitsCSV,
         createRequest,

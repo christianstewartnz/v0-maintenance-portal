@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, address, description } = body;
+    const { name, address, description, developmentCompany } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         address: typeof address === "string" ? address.trim() : "",
         description: typeof description === "string" ? description.trim() : "",
+        developmentCompany: typeof developmentCompany === "string" && developmentCompany.trim() ? developmentCompany.trim() : null,
       },
     });
 

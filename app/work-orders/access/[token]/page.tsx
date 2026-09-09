@@ -201,6 +201,9 @@ export default function ContractorAccessPage({
               <p className="text-sm text-muted-foreground">
                 {workOrder.project?.name} &middot; {workOrder.contractor?.name}
               </p>
+              {workOrder.project?.developmentCompany && (
+                <p className="text-xs text-muted-foreground">{workOrder.project.developmentCompany}</p>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4 px-6 pb-6">

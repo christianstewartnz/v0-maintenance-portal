@@ -20,7 +20,7 @@ export async function GET(
     const workOrder = await prisma.workOrder.findUnique({
       where: { id },
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, developmentCompany: true } },
         contractor: true,
         items: {
           include: {

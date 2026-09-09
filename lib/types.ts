@@ -4,6 +4,7 @@ export interface Project {
   name: string
   address: string
   description: string
+  developmentCompany: string | null
   createdAt: string
   archivedAt: string | null
 }
@@ -149,7 +150,7 @@ export interface WorkOrder {
   accessNotes: string | null
   messageBody: string | null
   createdAt: string
-  project?: Pick<Project, "id" | "name">
+  project?: Pick<Project, "id" | "name" | "developmentCompany">
   contractor?: Contractor
   items?: WorkOrderItem[]
   access?: WorkOrderAccess[]

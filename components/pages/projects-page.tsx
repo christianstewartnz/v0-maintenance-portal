@@ -38,6 +38,7 @@ export function ProjectsPage() {
   const [newName, setNewName] = useState("")
   const [newAddress, setNewAddress] = useState("")
   const [newDescription, setNewDescription] = useState("")
+  const [newDevCompany, setNewDevCompany] = useState("")
   const [creating, setCreating] = useState(false)
 
   const handleToggleArchived = (checked: boolean) => {
@@ -56,11 +57,12 @@ export function ProjectsPage() {
     if (!newName.trim()) return
     setCreating(true)
     try {
-      const created = await createProject({ name: newName, address: newAddress, description: newDescription })
+      const created = await createProject({ name: newName, address: newAddress, description: newDescription, developmentCompany: newDevCompany })
       setDialogOpen(false)
       setNewName("")
       setNewAddress("")
       setNewDescription("")
+      setNewDevCompany("")
       navigateTo({ type: "project-detail", projectId: created.id })
     } catch (err) {
       console.error("Failed to create project:", err)
@@ -115,6 +117,15 @@ export function ProjectsPage() {
                     value={newAddress}
                     onChange={(e) => setNewAddress(e.target.value)}
                     placeholder="e.g. 123 Main St, Suite 100"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="project-dev-company">Development Company</Label>
+                  <Input
+                    id="project-dev-company"
+                    value={newDevCompany}
+                    onChange={(e) => setNewDevCompany(e.target.value)}
+                    placeholder="e.g. Acme Developments Ltd"
                   />
                 </div>
                 <div className="flex flex-col gap-2">

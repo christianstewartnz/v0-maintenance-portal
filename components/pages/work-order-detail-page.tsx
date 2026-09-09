@@ -427,6 +427,9 @@ export function WorkOrderDetailPage() {
                   >
                     {workOrder.project?.name ?? "Unknown"}
                   </p>
+                  {workOrder.project?.developmentCompany && (
+                    <p className="text-xs text-muted-foreground">{workOrder.project.developmentCompany}</p>
+                  )}
                 </div>
 
                 <Separator />
